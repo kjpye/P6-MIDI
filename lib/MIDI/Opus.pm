@@ -1,14 +1,13 @@
+unit class MIDI::Opus;
 
-# Time-stamp: "2010-12-23 10:00:01 conklin"
-require 5;
-package MIDI::Opus;
-use strict;
-use vars qw($Debug $VERSION);
-use Carp;
+use v6;
 
-$Debug = 0;
-$VERSION = 0.83;
+sub unpack($string, *@args) {}
 
+my $Debug = 0;
+my $VERSION = 0.84;
+
+=begin pod
 =head1 NAME
 
 MIDI::Opus -- functions and methods for MIDI opuses
@@ -78,36 +77,36 @@ in code in MIDI::Track, but in a routine there that I've left
 undocumented, as you should access it only thru here.)
 
 =cut
+'
 
-sub new {
-  # Make a new MIDI opus object.
-  my $class = shift;
-  my $options_r = (defined($_[0]) and ref($_[0]) eq 'HASH') ? $_[0] : {};
+=end pod
 
-  my $this = bless( {}, $class );
+has $!from-file;
+has $!from-handle;
 
-  print "New object in class $class\n" if $Debug;
-
-  return $this if $options_r->{'no_opus_init'}; # bypasses all init.
-  $this->_init( $options_r );
-
-  if(
-     exists( $options_r->{'from_file'} ) &&
-     defined( $options_r->{'from_file'} ) &&
-     length( $options_r->{'from_file'} )
-  ){
-    $this->read_from_file( $options_r->{'from_file'}, $options_r );
-  } elsif(
-     exists( $options_r->{'from_handle'} ) &&
-     defined( $options_r->{'from_handle'} ) &&
-     length( $options_r->{'from_handle'} )
-  ){
-    $this->read_from_handle( $options_r->{'from_handle'}, $options_r );
+method TWEAK(*%args) {
+#  # Make a new MIDI opus object.
+#  my $class = shift;
+#  my $options_r = (defined($_[0]) and ref($_[0]) eq 'HASH') ? $_[0] : {};
+#
+#  my $this = bless( {}, $class );
+#
+#  print "New object in class $class\n" if $Debug;
+#
+#  return $this if $options_r->{'no_opus_init'}; # bypasses all init.
+#  $this->_init( $options_r );
+#
+  if $!from-file {
+    self.read-from-file;
+  } elsif $!from-handle
+  {
+    self.read-from-handle;
   }
-  return $this;
+#  return $this;
 }
 ###########################################################################
 
+=begin pod
 =item the method $new_opus = $opus->copy
 
 This duplicates the contents of the given opus, and returns
@@ -115,60 +114,62 @@ the duplicate.  If you are unclear on why you may need this function,
 read the documentation for the C<copy> method in L<MIDI::Track>.
 
 =cut
+=end pod
 
-sub copy {
+has @.tracks;
+
+method copy {
   # Duplicate a given opus.  Even dupes the tracks.
   # Call as $new_one = $opus->copy
-  my $opus = shift;
 
-  my $new = bless( { %{$opus} }, ref $opus );
+  my $new = self.new;
   # a first crude dupe.
   # yes, bless it into whatever class the original came from
 
-  $new->{'tracks'} =  # Now dupe the tracks.
-    [ map( $_->copy,
-	   @{ $new->{'tracks'} }
-	 )
-     ] if $new->{'tracks'}; # (which should always be true anyhoo)
+  $new.add-track;
+  @!tracks.map: {
+    $new.add-track($_.copy);
+  }
 
   return $new;
 }
 
-sub _init {
-  # Init a MIDI object -- (re)set it with given parameters, or defaults
-  my $this = shift;
-  my $options_r = ref($_[0]) eq 'HASH' ? $_[0] : {};
-
-  print "_init called against $this\n" if $Debug;
-  if($Debug) {
-    if(%$options_r) {
-      print "Parameters: ", map("<$_>", %$options_r), "\n";
-    } else {
-      print "Null parameters for opus init\n";
-    }
-  }
-  $this->{'format'} =
-    defined($options_r->{'format'}) ? $options_r->{'format'} : 1;
-  $this->{'ticks'}  =
-    defined($options_r->{'ticks'}) ? $options_r->{'ticks'} : 96;
-
-  $options_r->{'tracks'} = $options_r->{'tracks_r'}
-    if( exists( $options_r->{'tracks_r'} ) and not
-	exists( $options_r->{'tracks'} )
-      );
-  # so tracks_r => [ @tracks ] is a synonym for 
-  #    tracks   => [ @tracks ]
-  # as on option for new()
-
-  $this->{'tracks'}  =
-    ( defined($options_r->{'tracks'})
-      and ref($options_r->{'tracks'}) eq 'ARRAY' )
-    ? $options_r->{'tracks'} : []
-  ;
-  return;
-}
+#NYI method _init(*%opt) {
+#NYI   # Init a MIDI object -- (re)set it with given parameters, or defaults
+#NYI 
+#NYI   my $options_r = ref($_[0]) eq 'HASH' ? $_[0] : {};
+#NYI 
+#NYI   print "_init called against $this\n" if $Debug;
+#NYI   if($Debug) {
+#NYI     if(%$options_r) {
+#NYI       print "Parameters: ", map("<$_>", %$options_r), "\n";
+#NYI     } else {
+#NYI       print "Null parameters for opus init\n";
+#NYI     }
+#NYI   }
+#NYI   $this->{'format'} =
+#NYI     defined($options_r->{'format'}) ? $options_r->{'format'} : 1;
+#NYI   $this->{'ticks'}  =
+#NYI     defined($options_r->{'ticks'}) ? $options_r->{'ticks'} : 96;
+#NYI 
+#NYI   $options_r->{'tracks'} = $options_r->{'tracks_r'}
+#NYI     if( exists( $options_r->{'tracks_r'} ) and not
+#NYI 	exists( $options_r->{'tracks'} )
+#NYI       );
+#NYI   # so tracks_r => [ @tracks ] is a synonym for 
+#NYI   #    tracks   => [ @tracks ]
+#NYI   # as on option for new()
+#NYI 
+#NYI   $this->{'tracks'}  =
+#NYI     ( defined($options_r->{'tracks'})
+#NYI       and ref($options_r->{'tracks'}) eq 'ARRAY' )
+#NYI     ? $options_r->{'tracks'} : []
+#NYI   ;
+#NYI   return;
+#NYI }
 #########################################################################
 
+=begin pod
 =item the method $opus->tracks( @tracks )
 
 Returns the list of tracks in the opus, possibly after having set it
@@ -181,13 +182,16 @@ tracks (assuming @tracks is not empty), and @tracks = $opus->tracks is
 how to read the list of tracks.
 
 =cut
+=end pod
 
-sub tracks {
-  my $this = shift;
-  $this->{'tracks'} = [ @_ ] if @_;
-  return @{ $this->{'tracks'} };
-}
+#NYI may be unnecessary
+#NYI method tracks {
+#NYI   my $this = shift;
+#NYI   $this->{'tracks'} = [ @_ ] if @_;
+#NYI   return @{ $this->{'tracks'} };
+#NYI }
 
+=begin pod
 =item the method $opus->tracks_r( $tracks_r )
 
 Returns a reference to the list of tracks in the opus, possibly after
@@ -209,49 +213,48 @@ But if you don't know how to deal with listrefs like that, that's OK,
 just use $opus->tracks.
 
 =cut
+=end pod
 
-sub tracks_r {
-  my $this = shift;
-  $this->{'tracks'} = $_[0] if ref($_[0]);
-  return $this->{'tracks'};
-}
+#NYI sub tracks_r {
+#NYI   my $this = shift;
+#NYI   $this->{'tracks'} = $_[0] if ref($_[0]);
+#NYI   return $this->{'tracks'};
+#NYI }
 
+=begin pod
 =item the method $opus->ticks( $tick_parameter )
 
 Returns the tick parameter from $opus, after having set it to
 $tick_parameter, if provided.
 
 =cut
+=end pod
 
-sub ticks {
-  my $this = shift;
-  $this->{'ticks'} = $_[0] if defined($_[0]);
-  return $this->{'ticks'};
-}
+has $.ticks;
 
+=begin pod
 =item the method $opus->format( $format )
 
 Returns the MIDI format for $opus, after having set it to
 $format, if provided.
 
 =cut
+=end pod
 
-sub format {
-  my $this = shift;
-  $this->{'format'} = $_[0] if defined($_[0]);
-  return $this->{'format'};
-}
 
-sub info { # read-only
-  # Hm, do I really want this routine?  For ANYTHING at all?
-  my $this = shift;
-  return (
-    'format' => $this->{'format'},# I want a scalar
-    'ticks'  => $this->{'ticks'}, # I want a scalar
-    'tracks' => $this->{'tracks'} # I want a ref to a list
-  );
-}
+has $.format;
 
+#NYI sub info { # read-only
+#NYI   # Hm, do I really want this routine?  For ANYTHING at all?
+#NYI   my $this = shift;
+#NYI   return (
+#NYI     'format' => $this->{'format'},# I want a scalar
+#NYI     'ticks'  => $this->{'ticks'}, # I want a scalar
+#NYI     'tracks' => $this->{'tracks'} # I want a ref to a list
+#NYI   );
+#NYI }
+
+=begin pod
 =item the method $new_opus = $opus->quantize
 
 This grid quantizes an opus.  It simply calls MIDI::Score::quantize on
@@ -259,27 +262,30 @@ every track.  See docs for MIDI::Score::quantize.  Original opus is
 destroyed, use MIDI::Opus::copy if you want to take a copy first.
 
 =cut
+=end pod
 
-sub quantize {
-  my $this = $_[0];
-  my $options_r = ref($_[1]) eq 'HASH' ? $_[1] : {};
-  my $grid = $options_r->{grid};
-  if ($grid < 1) {carp "bad grid $grid in MIDI::Opus::quantize!"; return;}
-  return if ($grid eq 1); # no quantizing to do
-  my $qd = $options_r->{durations}; # quantize durations?
-  my $new_tracks_r = [];
-  foreach my $track ($this->tracks) {
-      my $score_r = MIDI::Score::events_r_to_score_r($track->events_r);
+method quantize(*%options) {
+
+  my $grid = %options<grid>;
+  if $grid < 1 {
+      warn "bad grid $grid in MIDI::Opus::quantize!"; return;
+  }
+  return if $grid == 1; # no quantizing to do
+  my $qd = %options<durations>; # quantize durations?
+  my @new_tracks_r = [];
+  for @!tracks -> $track {
+      my $score_r = MIDI::Score::events_r_to_score_r($track.events_r);
       my $new_score_r = MIDI::Score::quantize($score_r,{grid=>$grid,durations=>$qd});
       my $events_r = MIDI::Score::score_r_to_events_r($new_score_r);
-      my $new_track = MIDI::Track->new({events_r=>$events_r});
-      push @{$new_tracks_r}, $new_track;
+      my $new_track = MIDI::Track.new(events_r => $events_r);
+      @new_tracks_r.push: $new_track;
   }
-  $this->tracks_r($new_tracks_r);
+  self.tracks_r(@new_tracks_r);
 }
 
 ###########################################################################
 
+=begin pod
 =item the method $opus->dump( { ...options...} )
 
 Dumps the opus object as a bunch of text, for your perusal.  Options
@@ -290,41 +296,36 @@ run, would/should reproduce the opus.  For concision's sake, the track data
 isn't dumped, unless you specify the option C<dump_tracks> as true.
 
 =cut
+=end pod
 
-sub dump { # method; read-only
-  my $this = $_[0];
-  my %info = $this->info();
-  my $options_r = ref($_[1]) eq 'HASH' ? $_[1] : {};
+method dump(*%options) {
 
-  if($options_r->{'flat'}) { # Super-barebones dump mode
-    my $d = $options_r->{'delimiter'} || "\t";
-    foreach my $track ($this->tracks) {
-      foreach my $event (@{ $track->events_r }) {
-	print( join($d, @$event), "\n" );
+  my %info = self.info();
+
+  if %options<flat> { # Super-barebones dump mode
+    my $d = %options<delimiter> || "\t";
+    for @!tracks -> $track {
+      for $track.events -> $event {
+	print( join($d, $event), "\n" );
       }
     }
     return;
   }
 
-  print "MIDI::Opus->new({\n",
-    "  'format' => ", &MIDI::_dump_quote($this->{'format'}), ",\n",
-    "  'ticks'  => ", &MIDI::_dump_quote($this->{'ticks'}), ",\n";
+  print 'MIDI::Opus->new({', "\n",
+    "  'format' => ", MIDI::_dump_quote($!format), ",\n",
+    "  'ticks'  => ", MIDI::_dump_quote($!ticks), ",\n";
 
-  my @tracks = $this->tracks;
-  if( $options_r->{'dump_tracks'} ) {
-    print "  'tracks' => [   # ", scalar(@tracks), " tracks...\n\n";
-    foreach my $x (0 .. $#tracks) {
-      my $track = $tracks[$x];
+  if %options<dump_tracks> {
+    print "  'tracks' => [   # ", +@!tracks, " tracks...\n\n";
+    for 0 .. +@!tracks -> $x {
+      my $track = @!tracks[$x];
       print "    # Track \#$x ...\n";
-      if(ref($track)) {
-        $track->dump($options_r);
-      } else {
-        print "    # \[$track\] is not a reference!!\n";
-      }
+      $track.dump(%options);
     }
     print "  ]\n";
   } else {
-    print "  'tracks' => [ ],  # ", scalar(@tracks), " tracks (not dumped)\n";
+    print "  'tracks' => [ ],  # ", +@!tracks, " tracks (not dumped)\n";
   }
   print "});\n";
   return 1;
@@ -334,7 +335,8 @@ sub dump { # method; read-only
 # And now the real fun...
 ###########################################################################
 
-=item the method $opus->write_to_file('filespec', { ...options...} )
+=begin pod
+=item the method $opus.write-to-file('filespec', { ...options...} )
 
 Writes $opus as a MIDI file named by the given filespec.
 The options hash is optional, and whatever you specify as options
@@ -343,24 +345,21 @@ Currently this just opens the file, calls $opus->write_to_handle
 on the resulting filehandle, and closes the file.
 
 =cut
+=end pod
 
-sub write_to_file { # method
-  # call as $opus->write_to_file("../../midis/stuff1.mid", { ..options..} );
-  my $opus = $_[0];
-  my $destination = $_[1];
-  my $options_r = ref($_[2]) eq 'HASH' ?  $_[2] : {};
+method write-to-file($destination, *%options) {
+  # call as $opus.write_to_file("../../midis/stuff1.mid", { ..options..} );
 
-  croak "No output file specified" unless length($destination);
-  unless(open(OUT_MIDI, ">$destination")) {
-    croak "Can't open $destination for writing\: \"$!\"\n";
-  }
-  $opus->write_to_handle( *OUT_MIDI{IO}, $options_r);
-  close(OUT_MIDI)
-    || croak "Can't close filehandle for $destination\: \"$!\"\n";
+  fail "No output file specified" unless $destination;
+  my $OUT-MIDI = $destination.IO.open: :w or fail "Can't open $destination for writing: '$!'\n";
+
+  self.write-to-handle( $OUT-MIDI, %options);
+  $OUT-MIDI.close
+    || fail "Can't close filehandle for $destination\: \"$!\"\n";
   return; # nothing useful to return
 }
 
-sub read_from_file { # method, surprisingly enough
+method read-from-file($source, *%options) {
   # $opus->read_from_file("ziz1.mid", {'stuff' => 1}).
   #  Overwrites the contents of $opus with the contents of the file ziz1.mid
   #  $opus is presumably newly initted.
@@ -368,25 +367,16 @@ sub read_from_file { # method, surprisingly enough
   #  This is currently meant to be called by only the
   #   MIDI::Opus->new() constructor.
 
-  my $opus = $_[0];
-  my $source = $_[1];
-  my $options_r = ref($_[2]) eq 'HASH' ?  $_[2] : {};
+  fail "No source file specified" unless $source.defined && $source;
+  my $IN-MIDI = $source.IO.open: :bin :r or fail "Can't open $source for reading: '$!'\n";
 
-  croak "No source file specified" unless length($source);
-  unless(open(IN_MIDI, "<$source")) {
-    croak "Can't open $source for reading\: \"$!\"\n";
-  }
-  my $size = -s $source;
-  $size = undef unless $size;
-
-  $opus->read_from_handle(*IN_MIDI{IO}, $options_r, $size);
-  # Thanks to the EFNet #perl cabal for helping me puzzle out "*IN_MIDI{IO}"
-  close(IN_MIDI) ||
-    croak "error while closing filehandle for $source\: \"$!\"\n";
-
-  return $opus;
+  self.read-from-handle($IN-MIDI, %options);
+  $IN-MIDI.close ||
+    fail "error while closing filehandle for $source: '$!'\n";
 }
 
+
+=begin pod
 =item the method $opus->write_to_handle(IOREF, { ...options...} )
 
 Writes $opus as a MIDI file to the IO handle you pass a reference to
@@ -397,54 +387,46 @@ Note that this is probably not what you'd want for sending music
 to C</dev/sequencer>, since MIDI files are not MIDI-on-the-wire.
 
 =cut
+=end pod
 
 ###########################################################################
-sub write_to_handle { # method
+method write_to_handle($fh, *%options) {
   # Call as $opus->write_to_handle( *FH{IO}, { ...options... });
-  my $opus = $_[0];
-  my $fh = $_[1];
-  my $options_r = ref($_[2]) eq 'HASH' ?  $_[2] : {};
 
-  binmode($fh);
+  my $tracks = +@!tracks;
+  warn "Writing out an opus with no tracks!\n" if $tracks == 0;
 
-  my $tracks = scalar( $opus->tracks );
-  carp "Writing out an opus with no tracks!\n" if $tracks == 0;
-
-  my $format;
-  if( defined($opus->{'format'}) ) {
-    $format = $opus->{'format'};
-  } else { # Defaults
-    if($tracks == 0) {
-      $format = 2; # hey, why not?
-    } elsif ($tracks == 1) {
-      $format = 0;
-    } else {
-      $format = 1;
+  my $format = $!format;
+  unless $format.defined {
+    given +@!tracks {
+      when 0  { $format = 2;}
+      when 1  { $format = 0;}
+      default { $format = 1;}
     }
   }
-  my $ticks =
-   defined($opus->{'ticks'}) ? $opus->{'ticks'} : 96 ;
+
+  my $ticks = $!ticks // 96;
     # Ninety-six ticks per quarter-note seems a pleasant enough default.
 
-  print $fh (
+  $fh.print:
     "MThd\x00\x00\x00\x06", # header; 6 bytes follow
-    pack('nnn', $format, $tracks, $ticks)
-  );
-  foreach my $track (@{ $opus->{'tracks'} }) {
+    pack('nnn', $format, $tracks, $ticks); # TODO
+
+  for @!tracks -> $track {
     my $data = '';
-    my $type = substr($track->{'type'} . "\x00\x00\x00\x00", 0, 4);
+    my $type = substr($track.type ~ "\x00\x00\x00\x00", 0, 4);
       # Force it to be 4 chars long.
-    $data =  ${ $track->encode( $options_r ) };
+    $data =  $track.encode(%options);
       # $track->encode will handle the issue of whether
       #  to use the track's data or its events
-    print $fh ($type, pack('N', length($data)), $data);
+    $fh.print: $type, pack('N', $data.bytes), $data; # TODO
   }
   return;
 }
 
 ############################################################################
-sub read_from_handle { # a method, surprisingly enough
-  # $opus->read_from_handle(*STDIN{IO}, {'stuff' => 1}).
+method read-from-handle($fh, *%options) {
+  # $opus.read-from-handle($*STDIN, {'stuff' => 1}).
   #  Overwrites the contents of $opus with the contents of the MIDI file
   #   from the filehandle you're passing a reference to.
   #  $opus is presumably newly initted.
@@ -453,94 +435,81 @@ sub read_from_handle { # a method, surprisingly enough
   #  This is currently meant to be called by only the
   #   MIDI::Opus->new() constructor.
 
-  my $opus = $_[0];
-  my $fh = $_[1];
-  my $options_r = ref($_[2]) eq 'HASH' ?  $_[2] : {};
-  my $file_size_left;
-  $file_size_left = $_[3] if defined $_[3];
-
-  binmode($fh);
-
   my $in = '';
 
-  my $track_size_limit;
-  $track_size_limit = $options_r->{'track_size'}
-   if exists $options_r->{'track_size'};
+my $file-size-left; # TODO
 
-  croak "Can't even read the first 14 bytes from filehandle $fh"
-    unless read($fh, $in, 14);
+  my $track-size-limit;
+  $track-size-limit = %options<track_size>
+   if %options<track_size>.exists;
+
+  fail "Can't even read the first 14 bytes from filehandle $fh"
+    unless $in = $fh.readchars: 14, :bin;
     # 14 = The expected header length.
 
-  if(defined $file_size_left) {
-    $file_size_left -= 14;
-  }
+  $file-size-left -= 14 if $file-size-left.defined;
 
-  my($id, $length, $format, $tracks_expected, $ticks) = unpack('A4Nnnn', $in);
+  my ($id, $length, $format, $tracks-expected, $ticks) = unpack('A4Nnnn', $in); # TODO
 
-  croak "data from handle $fh doesn't start with a MIDI file header"
+  fail "data from handle $fh doesn't start with a MIDI file header"
     unless $id eq 'MThd';
-  croak "Unexpected MTHd chunk length in data from handle $fh"
+  fail "Unexpected MTHd chunk length in data from handle $fh"
     unless $length == 6;
-  $opus->{'format'} = $format;
-  $opus->{'ticks'}  = $ticks;   # ...which may be a munged 'negative' number
-  $opus->{'tracks'} = [];
+  $!format = $format;
+  $!ticks  = $ticks;   # ...which may be a munged 'negative' number
+  @!tracks = [];
 
-  print "file header from handle $fh read and parsed fine.\n" if $Debug;
-  my $track_count = 0;
+  say "file header from handle $fh read and parsed fine." if $Debug;
+  my $track-count = 0;
 
- Track_Chunk:
-  until( eof($fh) ) {
-    ++$track_count;
-    print "Reading Track \# $track_count into a new track\n" if $Debug;
+  until $fh.eof {
+    ++$track-count;
+    print "Reading Track \# $track-count into a new track\n" if $Debug;
 
-    if(defined $file_size_left) {
-      $file_size_left -= 2;
-      croak "reading further would exceed file_size_limit"
-	if $file_size_left < 0;
+    if $file-size-left.defined {
+      $file-size-left -= 2;
+      fail "reading further would exceed file_size_limit"
+	if $file-size-left < 0;
     }
 
-    my($header, $data);
-    croak "Can't read header for track chunk \#$track_count"
-      unless read($fh, $header, 8);
-    my($type, $length) = unpack('A4N', $header);
+    my ($header, $data);
+    fail "Can't read header for track chunk \#$track-count"
+      unless $header = $fh.readchars: 8, :bin;
+    my ($type, $length) = unpack('A4N', $header);# TODO
 
-    if(defined $track_size_limit and $track_size_limit > $length) {
-      croak "Track \#$track_count\'s length ($length) would"
-       . " exceed track_size_limit $track_size_limit";
+    if $track-size-limit.defined and $track-size-limit > $length {
+      fail "Track \#$track-count\'s length ($length) would"
+       ~ " exceed track-size-limit $track-size-limit";
     }
 
-    if(defined $file_size_left) {
-      $file_size_left -= $length;
-      croak "reading track \#$track_count (of length $length) " 
-        . "would exceed file_size_limit"
-       if $file_size_left < 0;
+    if $file-size-left.defined {
+      $file-size-left -= $length;
+      fail "reading track \#$track-count (of length $length) " 
+        ~ "would exceed file-size-limit"
+       if $file-size-left < 0;
     }
 
-    read($fh, $data, $length);   # whooboy, actually read it now
+    $data = $fh.readchars: $length, :bin;   # whooboy, actually read it now
 
-    if($length == length($data)) {
-      push(
-        @{ $opus->{'tracks'} },
-        &MIDI::Track::decode( $type, \$data, $options_r )
-      );
+    if $length == $data.bytes {
+      @!tracks.push: MIDI::Track::decode($type, $data, %options);
     } else {
-      croak
-        "Length of track \#$track_count is off in data from $fh; "
-        . "I wanted $length\, but got "
-        . length($data);
+      fail
+        "Length of track \#$track-count is off in data from $fh; "
+        ~ "I wanted $length\, but got "
+        ~ $data.bytes;
     }
   }
 
-  carp
-    "Header in data from $fh says to expect $tracks_expected tracks, "
-    . "but $track_count were found\n"
-    unless $tracks_expected == $track_count;
-  carp "No tracks read in data from $fh\n" if $track_count == 0;
-
-  return $opus;
+  note
+    "Header in data from $fh says to expect $tracks-expected tracks, "
+    ~ "but $track-count were found\n"
+    unless $tracks-expected == $track-count;
+  fail "No tracks read in data from $fh\n" if $track-count == 0;
 }
 ###########################################################################
 
+=begin pod
 =item the method $opus->draw({ ...options...})
 
 This currently experimental method returns a new GD image object that's
@@ -592,100 +561,101 @@ specially represented, as it probably should be;
 notes overlapping are not represented at all well.
 
 =cut
+'
+=end pod
 
-sub draw { # method
-  my $opus = $_[0];
-  my $options_r = ref($_[1]) ? $_[1] : {};
-
-  &use_GD(); # will die at runtime if we call this function but it can't use GD
-
-  my $opus_time = 0;
-  my @scores = ();
-  foreach my $track ($opus->tracks) {
-    my($score_r, $track_time) = MIDI::Score::events_r_to_score_r(
-      $track->events_r );
-    push(@scores, $score_r) if @$score_r;
-    $opus_time = $track_time if $track_time > $opus_time;
-  }
-
-  my $width = $options_r->{'width'} || 600;
-
-  croak "opus can't be drawn because it takes no time" unless $opus_time;
-  my $pixtix = $opus_time / $width; # Number of ticks a pixel represents
-
-  my $im = GD::Image->new($width,127);
-  # This doesn't handle pitch wheel, nor does it tread things on channel 10
-  #  (percussion) as specially as it probably should.
-  # The problem faced here is how to map onto pixel color all the
-  #  characteristics of a note (say, Channel, Note, Volume, and Patch).
-  # I'll just do it for channels.  Rewrite this on your own if you want
-  #  something different.
-
-  my $bg_color =
-    $im->colorAllocate(unpack('C3', pack('H2H2H2',unpack('a2a2a2',
-	( length($options_r->{'bg_color'}) ? $options_r->{'bg_color'}
-          : $MIDI::Opus::BG_color)
-							 ))) );
-  @MIDI::Opus::Channel_colors = ( '00ffff' , '0000ff' )
-    unless @MIDI::Opus::Channel_colors;
-  my @colors =
-    map( $im->colorAllocate(
-			    unpack('C3', pack('H2H2H2',unpack('a2a2a2',$_)))
-			   ), # convert 6-digit hex to a scalar tuple
-	 ref($options_r->{'channel_colors'}) ?
-           @{$options_r->{'channel_colors'}} : @MIDI::Opus::Channel_colors
-       );
-  my $channels_in_palette = int(@colors / 2);
-  $im->fill(0,0,$bg_color);
-  foreach my $score_r (@scores) {
-    foreach my $event_r (@$score_r) {
-      next unless $event_r->[0] eq 'note';
-      my($time, $duration, $channel, $note, $volume) = @{$event_r}[1,2,3,4,5];
-      my $y = 127 - $note;
-      my $start_x = $time / $pixtix;
-      $im->line($start_x, $y, ($time + $duration) / $pixtix, $y,
-                $colors[1 + ($channel % $channels_in_palette)] );
-      $im->setPixel($start_x , $y, $colors[$channel % $channels_in_palette] );
-    }
-  }
-  return $im; # Returns the GD object, which the user then dumps however
-}
+#NYI method draw(*%options) {
+#NYI 
+#NYI   use_GD(); # will die at runtime if we call this function but it can't use GD
+#NYI 
+#NYI   my $opus_time = 0;
+#NYI   my @scores = ();
+#NYI   for @!tracks -> $track {
+#NYI     my ($score_r, $track_time) = MIDI::Score::events_r_to_score_r(
+#NYI       $track.events_r );
+#NYI     @scores.push: $score_r if $score_r;
+#NYI     $opus_time = $track_time if $track_time > $opus_time;
+#NYI   }
+#NYI 
+#NYI   my $width = %options<width> || 600;
+#NYI 
+#NYI   fail "opus can't be drawn because it takes no time" unless $opus_time;
+#NYI   my $pixtix = $opus_time / $width; # Number of ticks a pixel represents
+#NYI 
+#NYI   my $im = GD::Image.new(width => $width,127);
+#NYI   # This doesn't handle pitch wheel, nor does it treat things on channel 10
+#NYI   #  (percussion) as specially as it probably should.
+#NYI   # The problem faced here is how to map onto pixel color all the
+#NYI   #  characteristics of a note (say, Channel, Note, Volume, and Patch).
+#NYI   # I'll just do it for channels.  Rewrite this on your own if you want
+#NYI   #  something different.
+#NYI 
+#NYI   my $bg_color =
+#NYI     $im->colorAllocate(unpack('C3', pack('H2H2H2',unpack('a2a2a2',
+#NYI 	( length($options_r->{'bg_color'}) ? $options_r->{'bg_color'}
+#NYI           : $MIDI::Opus::BG_color)
+#NYI 							 ))) );
+#NYI   @MIDI::Opus::Channel_colors = ( '00ffff' , '0000ff' )
+#NYI     unless @MIDI::Opus::Channel_colors;
+#NYI   my @colors =
+#NYI     map( $im->colorAllocate(
+#NYI 			    unpack('C3', pack('H2H2H2',unpack('a2a2a2',$_)))
+#NYI 			   ), # convert 6-digit hex to a scalar tuple
+#NYI 	 ref($options_r->{'channel_colors'}) ?
+#NYI            @{$options_r->{'channel_colors'}} : @MIDI::Opus::Channel_colors
+#NYI        );
+#NYI   my $channels_in_palette = int(@colors / 2);
+#NYI   $im->fill(0,0,$bg_color);
+#NYI   foreach my $score_r (@scores) {
+#NYI     foreach my $event_r (@$score_r) {
+#NYI       next unless $event_r->[0] eq 'note';
+#NYI       my ($time, $duration, $channel, $note, $volume) = @{$event_r}[1,2,3,4,5];
+#NYI       my $y = 127 - $note;
+#NYI       my $start_x = $time / $pixtix;
+#NYI       $im->line($start_x, $y, ($time + $duration) / $pixtix, $y,
+#NYI                 $colors[1 + ($channel % $channels_in_palette)] );
+#NYI       $im->setPixel($start_x , $y, $colors[$channel % $channels_in_palette] );
+#NYI     }
+#NYI   }
+#NYI   return $im; # Returns the GD object, which the user then dumps however
+#NYI }
 
 #--------------------------------------------------------------------------
-{ # Closure so we can use this wonderful variable:
-  my $GD_used = 0;
-  sub use_GD {
-    return if $GD_used;
-    eval("use GD;"); croak "You don't seem to have GD installed." if $@;
-    $GD_used = 1; return;
-  }
-  # Why use GD at runtime like this, instead of at compile-time like normal?
-  # So we can still use everything in this module except &draw even if we
-  # don't have GD on this system.
-}
+#NYI { # Closure so we can use this wonderful variable:
+#NYI   my $GD_used = 0;
+#NYI   sub use_GD {
+#NYI     return if $GD_used;
+#NYI     eval("use GD;"); croak "You don't seem to have GD installed." if $@;
+#NYI     $GD_used = 1; return;
+#NYI   }
+#NYI   # Why use GD at runtime like this, instead of at compile-time like normal?
+#NYI   # So we can still use everything in this module except &draw even if we
+#NYI   # don't have GD on this system.
+#NYI }
 
 ######################################################################
 # This maps channel number onto colors for draw(). It is quite unimaginative,
 #  and reuses colors two or three times.  It's a package global.  You can
 #  change it by assigning to @MIDI::Simple::Channel_colors.
 
-@MIDI::Opus::Channel_colors =
-  (
-   'c0c0ff', '6060ff',  # start / sustain color, channel 0
-   'c0ffc0', '60ff60',  # start / sustain color, channel 1, etc...
-   'ffc0c0', 'ff6060',  'ffc0ff', 'ff60ff',  'ffffc0', 'ffff60',
-   'c0ffff', '60ffff',
-   
-   'c0c0ff', '6060ff',  'c0ffc0', '60ff60',  'ffc0c0', 'ff6060', 
-   'c0c0c0', '707070', # channel 10
-   
-   'ffc0ff', 'ff60ff',  'ffffc0', 'ffff60',  'c0ffff', '60ffff',
-   'c0c0ff', '6060ff',  'c0ffc0', '60ff60',  'ffc0c0', 'ff6060',
-  );
-$MIDI::Opus::BG_color = '000000'; # Black goes with everything, you know.
+#NYI @MIDI::Opus::Channel_colors =
+#NYI   (
+#NYI    'c0c0ff', '6060ff',  # start / sustain color, channel 0
+#NYI    'c0ffc0', '60ff60',  # start / sustain color, channel 1, etc...
+#NYI    'ffc0c0', 'ff6060',  'ffc0ff', 'ff60ff',  'ffffc0', 'ffff60',
+#NYI    'c0ffff', '60ffff',
+#NYI    
+#NYI    'c0c0ff', '6060ff',  'c0ffc0', '60ff60',  'ffc0c0', 'ff6060', 
+#NYI    'c0c0c0', '707070', # channel 10
+#NYI    
+#NYI    'ffc0ff', 'ff60ff',  'ffffc0', 'ffff60',  'c0ffff', '60ffff',
+#NYI    'c0c0ff', '6060ff',  'c0ffc0', '60ff60',  'ffc0c0', 'ff6060',
+#NYI   );
+#NYI $MIDI::Opus::BG_color = '000000'; # Black goes with everything, you know.
 
 ###########################################################################
 
+=begin pod
 =back
 
 =head1 WHERE'S THE DESTRUCTOR?
@@ -765,6 +735,4 @@ Sean M. Burke C<sburke@cpan.org> (until 2010)
 Darrell Conklin C<conklin@cpan.org> (from 2010)
 
 =cut
-
-1;
-__END__
+=end pod

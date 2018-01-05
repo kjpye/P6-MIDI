@@ -1,14 +1,11 @@
+unit class MIDI::Track;
 
-# Time-stamp: "2013-02-01 22:40:38 conklin"
-require 5;
-package MIDI::Track;
-use strict;
-use vars qw($Debug $VERSION);
-use Carp;
+use v6;
 
-$Debug = 0;
-$VERSION = '0.83';
+my $Debug = 0;
+my$VERSION = '0.83';
 
+=begin pod
 =head1 NAME
 
 MIDI::Track -- functions and methods for MIDI tracks
@@ -79,53 +76,55 @@ L<perllol> for the skinny on LoLs); and C<events_r>, which is an exact
 synonym of C<events>.
 
 =cut
+=end pod
 
-sub new {
-  # make a new track.
-  my $class = shift;
-  my $this = bless( {}, $class );
-  print "New object in class $class\n" if $Debug;
-  $this->_init( @_ );
-  return $this;
+#sub new {
+#  # make a new track.
+#  my $class = shift;
+#  my $this = bless( {}, $class );
+#  print "New object in class $class\n" if $Debug;
+#  $this->_init( @_ );
+#  return $this;
+#}
+
+method _init {
+#NYI   # You can specify options:
+#NYI   #  'event' => [a list of events],  AKA 'event_r'
+#NYI   #  'type'  => 'Whut', # default is 'MTrk'
+#NYI   #  'data'  => 'scads of binary data as you like it'
+#NYI 
+#NYI   my $options_r = ref($_[0]) eq 'HASH' ? $_[0] : {};
+#NYI   print "_init called against $this\n" if $Debug;
+#NYI   if($Debug) {
+#NYI     if(%$options_r) {
+#NYI       print "Parameters: ", map("<$_>", %$options_r), "\n";
+#NYI     } else {
+#NYI       print "Null parameters for opus init\n";
+#NYI     }
+#NYI   }
+#NYI 
+#NYI   $this->{'type'} =
+#NYI     defined($options_r->{'type'}) ? $options_r->{'type'} : 'MTrk';
+#NYI   $this->{'data'} = $options_r->{'data'}
+#NYI     if defined($options_r->{'data'});
+#NYI 
+#NYI   $options_r->{'events'} = $options_r->{'events_r'}
+#NYI     if( exists( $options_r->{'events_r'} ) and not
+#NYI 	exists( $options_r->{'events'} )
+#NYI       );
+#NYI   # so events_r => [ @events ] is a synonym for 
+#NYI   #    events   => [ @events ]
+#NYI   # as on option for new()
+#NYI 
+#NYI   $this->{'events'} =
+#NYI     ( defined($options_r->{'events'})
+#NYI       and ref($options_r->{'events'}) eq 'ARRAY' )
+#NYI     ? $options_r->{'events'} : []
+#NYI   ;
+#NYI   return;
 }
 
-sub _init {
-  # You can specify options:
-  #  'event' => [a list of events],  AKA 'event_r'
-  #  'type'  => 'Whut', # default is 'MTrk'
-  #  'data'  => 'scads of binary data as you like it'
-  my $this = shift;
-  my $options_r = ref($_[0]) eq 'HASH' ? $_[0] : {};
-  print "_init called against $this\n" if $Debug;
-  if($Debug) {
-    if(%$options_r) {
-      print "Parameters: ", map("<$_>", %$options_r), "\n";
-    } else {
-      print "Null parameters for opus init\n";
-    }
-  }
-
-  $this->{'type'} =
-    defined($options_r->{'type'}) ? $options_r->{'type'} : 'MTrk';
-  $this->{'data'} = $options_r->{'data'}
-    if defined($options_r->{'data'});
-
-  $options_r->{'events'} = $options_r->{'events_r'}
-    if( exists( $options_r->{'events_r'} ) and not
-	exists( $options_r->{'events'} )
-      );
-  # so events_r => [ @events ] is a synonym for 
-  #    events   => [ @events ]
-  # as on option for new()
-
-  $this->{'events'} =
-    ( defined($options_r->{'events'})
-      and ref($options_r->{'events'}) eq 'ARRAY' )
-    ? $options_r->{'events'} : []
-  ;
-  return;
-}
-
+=begin pod
 =item the method $new_track = $track->copy
 
 This duplicates the contents of the given track, and returns
@@ -171,40 +170,42 @@ and if you happen to need to copy an event structure (LoL) outside of a
 track for some reason, use MIDI::Event::copy_structure.)
 
 =cut
+=end pod
 
-sub copy {
+has @.events;
+
+method copy {
   # Duplicate a given track.  Even dupes the events.
   # Call as $new_one = $track->copy
-  my $track = shift;
 
-  my $new = bless( { %{$track} }, ref $track );
+  my $new = self.new;
   # a first crude dupe
-  $new->{'events'} = &MIDI::Event::copy_structure( $new->{'events'} )
-    if $new->{'events'};
+  $new.events = MIDI::Event::copy_structure( @!events );
   return $new;
 }
 
 ###########################################################################
-
+=begin pod
 =item track->skyline({ ...options... })
 
 skylines the entire track.  Modifies the track.  See MIDI::Score for
 documentation on skyline
 
 =cut
+=end pod
 
-sub skyline {
-    my $track = shift;
-    my $options_r = ref($_[1]) eq 'HASH' ? $_[1] : {};
-    my $score_r = MIDI::Score::events_r_to_score_r($track->events_r);
-    my $new_score_r = MIDI::Score::skyline($score_r,$options_r);
+method skyline(*%options) {
+
+    my $score_r = MIDI::Score::events_r_to_score_r(@!events);
+    my $new_score_r = MIDI::Score::skyline($score_r,%options);
     my $events_r = MIDI::Score::score_r_to_events_r($new_score_r);
-    $track->events_r($events_r);
+    self.events_r($events_r);
 }
 
 ###########################################################################
 # These three modify all the possible attributes of a track
 
+=begin pod
 =item the method $track->events( @events )
 
 Returns the list of events in the track, possibly after having set it
@@ -217,13 +218,9 @@ In other words: $track->events(@events) is how to set the list of events
 read the list of events.
 
 =cut
+=end pod
 
-sub events { # list or set events in this object
-  my $this = shift;
-  $this->{'events'} = [ @_ ] if @_;
-  return @{ $this->{'events'} };
-}
-
+=begin pod
 =item the method $track->events_r( $event_r )
 
 Returns a reference to the list of events in the track, possibly after
@@ -246,18 +243,20 @@ But if you don't know how to deal with listrefs outside of LoLs,
 that's OK, just use $track->events.
 
 =cut
+=end pod
 
-sub events_r {
-  # return (maybe set) a list-reference to the event-structure for this track
-  my $this = shift;
-  if(@_) {
-    croak "parameter for MIDI::Track::events_r must be an array-ref"
-      unless ref($_[0]);
-    $this->{'events'} = $_[0];
-  }
-  return $this->{'events'};
-}
+#NYI sub events_r {
+#NYI   # return (maybe set) a list-reference to the event-structure for this track
+#NYI   my $this = shift;
+#NYI   if(@_) {
+#NYI     croak "parameter for MIDI::Track::events_r must be an array-ref"
+#NYI       unless ref($_[0]);
+#NYI     $this->{'events'} = $_[0];
+#NYI   }
+#NYI   return $this->{'events'};
+#NYI }
 
+=begin pod
 =item the method $track->type( 'MFoo' )
 
 Returns the type of $track, after having set it to 'MFoo', if provided.
@@ -271,13 +270,11 @@ a context like:
 Track types must be 4 bytes long; see L<MIDI::Filespec> for details.
 
 =cut
+=end pod
 
-sub type {
-  my $this = shift;
-  $this->{'type'} = $_[0] if @_; # if you're setting it
-  return $this->{'type'};
-}
+has $.type;
 
+=begin pod
 =item the method $track->data( $kooky_binary_data )
 
 Returns the data from $track, after having set it to
@@ -286,16 +283,13 @@ probably won't ever need to use this method.  For your information,
 $track->data(undef) is how to undefine the data for a track.
 
 =cut
+=end pod
 
-sub data {
-  # meant for reading/setting generally non-MTrk track data
-  my $this = shift;
-  $this->{'data'} = $_[0] if @_;
-  return $this->{'data'};
-}
+has $.data;
 
 ###########################################################################
 
+=begin pod
 =item the method $track->new_event('event', ...parameters... )
 
 This adds the event ('event', ...parameters...) to the end of the
@@ -308,19 +302,18 @@ kinda splice(), then do it yourself with $track->events_r or
 $track->events.
 
 =cut
+=end pod
 
-sub new_event {
+method new_event(*@args) {
   # Usage:
   #  $this_track->new_event('text_event', 0, 'Lesbia cum Prono');
 
-  my $track = shift;
-  push( @{$track->{'events'}}, [ @_ ] );
-  # this returns the new number of events in that event list, if that
-  # interests you.
+  @!events.append: @args;
 }
 
 ###########################################################################
 
+=begin pod
 =item the method $track->dump({ ...options... })
 
 This dumps the track's contents for your inspection.  The dump format
@@ -333,25 +326,25 @@ track.
 Read the source if you really need to know how this works.
 
 =cut
+=end pod
 
-sub dump { # dump a track's contents
-  my $this = $_[0];
-  my $options_r = ref($_[1]) eq 'HASH' ? $_[1] : {};
-  my $type = $this->type;
+method dump(*%options) { # dump a track's contents
+
+  my $type = $!type;
 
   my $indent = '    ';
-  my @events = $this->events;
+  my @events = @!events;
   print(
-	$indent, "MIDI::Track->new({\n",
-	$indent, "  'type' => ", &MIDI::_dump_quote($type), ",\n",
-	defined($this->{'data'}) ?
+	$indent, 'MIDI::Track->new({', "\n",
+	$indent, "  'type' => ", MIDI::_dump_quote($type), ",\n",
+	$!data.defined ??
 	  ( $indent, "  'data' => ",
-	    &MIDI::_dump_quote($this->{'data'}), ",\n" )
-	  : (),
-	$indent, "  'events' => [  # ", scalar(@events), " events.\n",
+	    MIDI::_dump_quote($!data), ",\n" )
+	  !! (),
+	$indent, "  'events' => [  # ", +@!events, " events.\n",
        );
-  foreach my $event (@events) {
-    &MIDI::Event::dump(@$event);
+  for @events -> $event {
+    $event.dump;
     # was: print( $indent, "    [", &MIDI::_dump_quote(@$event), "],\n" );
   }
   print( "$indent  ]\n$indent}),\n$indent\n" );
@@ -362,43 +355,39 @@ sub dump { # dump a track's contents
 
 # CURRENTLY UNDOCUMENTED -- no end-user ever needs to call this as such
 #
-sub encode { # encode a track object into track data (not a chunk)
+method encode(*%options) { # encode a track object into track data (not a chunk)
   # Calling format:
   #  $data_r = $track->encode( { .. options .. } )
   # The (optional) argument is an anonymous hash of options.
   # Returns a REFERENCE to track data.
   #
-  my $track  = $_[0];
-  croak "$track is not a track object!" unless ref($track);
-  my $options_r = ref($_[1]) eq 'HASH' ? $_[1] : {};
 
   my $data = '';
 
-  if( exists( $track->{'data'} )  and  defined( $track->{'data'} ) ) {
+  if $!data.defined {
     # It might be 0-length, by the way.  Might this be problematic?
-    $data = $track->{'data'};
+    $data = $!data;
     # warn "Encoding 0-length track data!" unless length $data;
   } else { # Data is not defined for this track.  Parse the events
-    if( ($track->{'type'} eq 'MTrk'  or  length($track->{'type'}) == 0)
-        and defined($track->{'events'})
+    if $!type eq 'MTrk'  or  $data.chars == 0
+        and @!events.defined
              # not just exists -- but DEFINED!
-        and ref($track->{'events'})
-    ) {
-      print "Encoding ", $track->{'events'}, "\n" if $Debug;
+    {
+      print "Encoding ", @!events, "\n" if $Debug;
       return
-        &MIDI::Event::encode($track->{'events'}, $options_r );
+        @!events.encode(%options);
     } else {
       $data = ''; # what else to do?
       warn "Spork 8851\n" if $Debug;
     }
   }
-  return \$data;
+  return $data;
 }
 ###########################################################################
 
 # CURRENTLY UNDOCUMENTED -- no end-user ever needs to call this as such
 #
-sub decode { # returns a new object, but doesn't accept constructor syntax
+sub decode($type, $data, *%options) { # returns a new object, but doesn't accept constructor syntax
   # decode track data (not a chunk) into a new track object
   # Calling format:
   #  $new_track = 
@@ -406,27 +395,21 @@ sub decode { # returns a new object, but doesn't accept constructor syntax
   # Returns a new track_object.
   # The anonymous hash of options is, well, optional
 
-  my $track = MIDI::Track->new();
+  my $track = MIDI::Track.new();
 
-  my ($type, $data_r, $options_r)  = @_[0,1,2];
-  $options_r = {} unless ref($options_r) eq 'HASH';
-
-  die "\$_[0] \"$_[0]\" is not a data reference!"
-    unless ref($_[1]) eq 'SCALAR';
-
-  $track->{'type'} = $type;
-  if($type eq 'MTrk' and not $options_r->{'no_parse'}) {
-    $track->{'events'} =
-      &MIDI::Event::decode($data_r, $options_r);
+  $track.type($type);
+  if $type eq 'MTrk' and not %options<no_parse> {
+    $track.events(MIDI::Event::decode($data, %options));
         # And that's where all the work happens
   } else {
-    $track->{'data'} = $$data_r;
+    $track.data($data);
   }
   return $track;
 }
 
 ###########################################################################
 
+=begin pod
 =back
 
 =head1 COPYRIGHT 
@@ -443,7 +426,4 @@ Sean M. Burke C<sburke@cpan.org> (until 2010)
 Darrell Conklin C<conklin@cpan.org> (from 2010)
 
 =cut
-
-1;
-
-__END__
+=end pod

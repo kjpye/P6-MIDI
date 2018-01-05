@@ -1,24 +1,22 @@
+unit module MIDI;
 
-# Time-stamp: "2010-02-14 21:39:10 conklin"
-require 5;
-package MIDI;
-use strict;
-use vars qw($Debug $VERSION %number2note %note2number %number2patch
-	    %patch2number %notenum2percussion %percussion2notenum);
-use MIDI::Opus;
-use MIDI::Track;
-use MIDI::Event;
-use MIDI::Score;
+use v6;
+
+#use MIDI::Opus;
+#use MIDI::Track;
+#use MIDI::Event;
+#use MIDI::Score;
 
 # Doesn't use MIDI::Simple -- but MIDI::Simple uses this
 
-$Debug = 0; # currently doesn't do anything
-$VERSION = '0.83';
+my $Debug = 0; # currently doesn't do anything
+my $VERSION = '0.84';
 
 # MIDI.pm doesn't do much other than 1) 'use' all the necessary submodules
 # 2) provide some publicly useful hashes, 3) house a few private routines
 # common to the MIDI::* modules, and 4) contain POD, glorious POD.
 
+=begin pod
 =head1 NAME
 
 MIDI - read, compose, modify, and write MIDI files
@@ -141,7 +139,9 @@ comprehensible representation (e.g., 68 to 'Gs4', for G-sharp, octave
 to see the contents of the hash.
 
 =cut
-@number2note{0 .. 127} = (
+=end pod
+
+my %number2note = 0 .. 127 => (
 # (Do)        (Re)         (Mi)  (Fa)         (So)         (La)        (Ti)
  'C0', 'Cs0', 'D0', 'Ds0', 'E0', 'F0', 'Fs0', 'G0', 'Gs0', 'A0', 'As0', 'B0',
  'C1', 'Cs1', 'D1', 'Ds1', 'E1', 'F1', 'Fs1', 'G1', 'Gs1', 'A1', 'As1', 'B1',
@@ -157,7 +157,9 @@ to see the contents of the hash.
   # Note number 69 reportedly == A440, under a default tuning.
   # and note 60 = Middle C
 );
-%note2number = reverse %number2note;
+
+my %note2number = %number2note.reverse;
+
 # Note how I deftly avoid having to figure out how to represent a flat mark
 #  in ASCII.
 
@@ -165,6 +167,8 @@ to see the contents of the hash.
 #  ****     TABLE 1  -  General MIDI Instrument Patch Map      ****
 # (groups sounds into sixteen families, w/8 instruments in each family)
 #  Note that I call the map 0-127, not 1-128.
+
+=begin pod
 
 =item C<%MIDI::patch2number> and C<%MIDI::number2patch>
 
@@ -174,7 +178,9 @@ C<%MIDI::patch2number> is the reverse.  Have a look at the source
 to see the contents of the hash.
 
 =cut
-@number2patch{0 .. 127} = (   # The General MIDI map: patches 0 to 127
+=end pod
+
+my %number2patch = 0 .. 127 => (   # The General MIDI map: patches 0 to 127
 #0: Piano
  "Acoustic Grand", "Bright Acoustic", "Electric Grand", "Honky-Tonk",
  "Electric Piano 1", "Electric Piano 2", "Harpsichord", "Clav",
@@ -234,13 +240,15 @@ to see the contents of the hash.
  "Guitar Fret Noise", "Breath Noise", "Seashore", "Bird Tweet",
  "Telephone Ring", "Helicopter", "Applause", "Gunshot",
 );
-%patch2number = reverse %number2patch;
+
+my %patch2number = %number2patch.reverse;
 
 ###########################################################################
 #     ****    TABLE 2  -  General MIDI Percussion Key Map    ****
 # (assigns drum sounds to note numbers. MIDI Channel 9 is for percussion)
 # (it's channel 10 if you start counting at 1.  But WE start at 0.)
 
+=begin pod
 =item C<%MIDI::notenum2percussion> and C<%MIDI::percussion2notenum>
 
 C<%MIDI::notenum2percussion> correponds General MIDI Percussion Keys
@@ -249,8 +257,9 @@ to English names (e.g., 56 to 'Cowbell') -- but note that only numbers
 reverse.  Have a look at the source to see the contents of the hash.
 
 =cut
+=end pod
 
-@notenum2percussion{35 .. 81} = (
+my %notenum2percussion = 35 .. 81 => (
  'Acoustic Bass Drum', 'Bass Drum 1', 'Side Stick', 'Acoustic Snare',
  'Hand Clap',
 
@@ -274,10 +283,12 @@ reverse.  Have a look at the source to see the contents of the hash.
  # the eighties
  'Mute Triangle', 'Open Triangle',
 );
-%percussion2notenum = reverse %notenum2percussion;
+
+my %percussion2notenum = %notenum2percussion.reverse;
 
 ###########################################################################
 
+=begin pod
 =back
 
 =head1 BRIEF GLOSSARY
@@ -381,19 +392,23 @@ Sean M. Burke C<sburke@cpan.org> (until 2010)
 
 Darrell Conklin C<conklin@cpan.org> (from 2010)
 =cut
+=end pod
 
 ###########################################################################
-sub _dump_quote {
+sub dump_quote(*@stuff) {
   # Used variously by some MIDI::* modules.  Might as well keep it here.
-  my @stuff = @_;
+
   return
     join(", ",
-	map
+	@stuff.map:
 	 { # the cleaner-upper function
-	   if(!length($_)) { # empty string
+	   if ! $_.chars { # empty string
 	     "''";
-	   } elsif(
-                   $_ eq '0' or m/^-?(?:[1-9]\d*)$/s  # integers
+	   } elsif
+                   $_ eq '0' or $! ~~ m/^
+                                          \-?
+                                          <[1..9]> \d*
+                                      $/  # integers
 
 		   # Was just: m/^-?\d+(?:\.\d+)?$/s
                    # but that's over-broad, as let "0123" thru, which is
@@ -403,23 +418,19 @@ sub _dump_quote {
                    # would let thru all well-formed numbers, but also
                    # non-canonical forms of them like 0.3000000.
                    # Better to just stick to integers I think.
-	   ) {
+	   {
 	     $_;
-	   } elsif( # text with junk in it
-	      s<([^\x20\x21\x23\x27-\x3F\x41-\x5B\x5D-\x7E])>
-	       <'\\x'.(unpack("H2",$1))>eg
-	     ) {
+	   } elsif # text with junk in it
+	      $_ ~~ s:g/
+                       (<-[\x20 \x21 \x23 \x27..\x3F \x41..\x5B \x5D..\x7E]>)
+                       /\\x{sprintf "%02x", $0.ord}/
+	   {
 	     "\"$_\"";
 	   } else { # text with no junk in it
-	     s<'><\\'>g;
-	     "\'$_\'";
+	     s:g/\'/\\'/;
+	     "'$_'";
 	   }
 	 }
-	 @stuff
 	);
 }
 ###########################################################################
-
-1;
-
-__END__

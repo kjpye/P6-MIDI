@@ -1,20 +1,14 @@
+unit class MIDI::Event;
 
-# Time-stamp: "2010-12-23 09:59:44 conklin"
-require 5.004;        # I need BER working right, among other things.
-package MIDI::Event;
+use v6;
 
-use strict;
-use vars qw($Debug $VERSION @MIDI_events @Text_events @Nontext_meta_events
-	    @Meta_events @All_events
-	   );
-use Carp;
-
-$Debug = 0;
-$VERSION = '0.83';
+my $Debug = 0;
+my $VERSION = '0.84';
 
 #First 100 or so lines of this module are straightforward.  The actual
 # encoding logic below that is scary, tho.
 
+=begin pod
 =head1 NAME
 
 MIDI::Event - MIDI events
@@ -78,29 +72,39 @@ the combination of all the above lists.
 =back
 
 =cut
+=end pod
+
+# The contents of an event:
+has $.type; # a string
+has $!delta-time = 0;
+has @.args; # event type specific
 
 ###########################################################################
 # Some public-access lists:
 
-@MIDI_events = qw(
+my @MIDI_events = <
   note_off note_on key_after_touch control_change patch_change
   channel_after_touch pitch_wheel_change set_sequence_number
-);
-@Text_events = qw(
+>;
+
+my @Text_events = <
   text_event copyright_text_event track_name instrument_name lyric
   marker cue_point text_event_08 text_event_09 text_event_0a
   text_event_0b text_event_0c text_event_0d text_event_0e text_event_0f
-);
-@Nontext_meta_events = qw(
+>;
+
+my @Nontext_meta_events = <
   end_track set_tempo smpte_offset time_signature key_signature
   sequencer_specific raw_meta_event sysex_f0 sysex_f7 song_position
   song_select tune_request raw_data
-);
+>;
+
 # Actually, 'tune_request', for one, is is F-series event, not a
 #  strictly-speaking meta-event
-@Meta_events = (@Text_events, @Nontext_meta_events);
-@All_events = (@MIDI_events, @Meta_events);
+my @Meta_events = (@Text_events, @Nontext_meta_events).flat;
+my @All_events = (@MIDI_events, @Meta_events).flat;
 
+=begin pod
 =head1 FUNCTIONS
 
 This module provides three functions of interest, which all act upon
@@ -237,22 +241,18 @@ instead.  But it's here if you happen to need it.
 =back
 
 =cut
-
+=end pod
 ###########################################################################
-sub dump {
-  my @event = ref($_[0]) ? @{ $_[0] } : @_;
-  # Works as a method (in theory) or as a normal call
-  print( "        [", &MIDI::_dump_quote(@event), "],\n" );
+method dump {
+  print( "        [", self._dump-quote, "\n" );
 }
 
-sub copy_structure {
+method copy-structure {
   # Takes a REFERENCE to an event structure (a ref to a LoL),
   # and returns a REFERENCE to a copy of that structure.
-  my $events_r = $_[0];
-  croak
-    "\$_[0] ($events_r) isn't a reference for MIDI::Event::copy_structure()!!"
-    unless ref($events_r);
-  return [  map( [@$_], @$events_r )  ];
+
+  fail
+# TODO  return [  map( [@$_], @$events_r )  ];
 }
 
 ###########################################################################
@@ -260,18 +260,18 @@ sub copy_structure {
 # with the actual encoding and decoding of binary MIDI data.
 ###########################################################################
 
-sub read_14_bit {
+sub read_14_bit($in) {
   # Decodes to a value 0 to 16383, as is used for some event encoding
-  my($b1, $b2) = unpack("C2", $_[0]);
-  return ($b1 | ($b2 << 7));
+  my ($b1, $b2) = $in.comb;
+  return ($b1.ord | ($b2.ord +< 7));
 }
 
-sub write_14_bit {
+sub write_14_bit($in) {
   # encode a 14 bit quantity, as needed for some events
   return
     pack("C2",
-         ($_[0] & 0x7F), # lower 7 bits
-         (($_[0] >> 7) & 0x7F), # upper 7 bits
+         ($in +& 0x7F), # lower 7 bits
+         (($in +> 7) +& 0x7F), # upper 7 bits
 	);
 }
 
@@ -283,81 +283,45 @@ sub write_14_bit {
 #
 ###
 
-sub decode { # decode track data into an event structure
+sub decode(Buf $data, *%options) { # decode track data into an array of events
   # Calling format: a REFERENCE to a big chunka MTrk track data.
-  # Returns an (unblessed) REFERENCE to an event structure (a LoL)
+  # Returns an array of events.
   # Note that this is a function call, not a constructor method call.
 
-  # Why a references and not the things themselves?  For efficiency's sake.
-
-  my $data_r = $_[0];
-  my $options_r = ref($_[1]) eq 'HASH' ? $_[1] : {};
   my @events = ();
-  unless(ref($data_r) eq 'SCALAR') {
-    carp "\$_[0] is not a data reference, in MIDI::Event::decode!";
-    return [];
-  }
 
   my %exclude = ();
-  if(defined($options_r->{ 'exclude' })) {
-    if( ref($options_r->{'exclude'}) eq 'ARRAY' ) {
-      @exclude{
-        @{ $options_r->{'exclude'} }
-      } = undef;
-    } else {
-      croak
-        "parameter for MIDI::Event::decode option 'exclude' must be a listref!"
-	if $options_r->{'exclude'};
-      # If it's false, carry on silently
-    }
+# TODO What is this meant to be doing?
+  if %options<exclude> {
+# ???
   } else {
     # If we get an include (and no exclude), make %exclude a list
     #  of all possible events, /minus/ what include specifies
-    if(defined($options_r->{ 'include' })) {
-      if( ref($options_r->{'include'}) eq 'ARRAY' ) {
-	@exclude{ @All_events } = undef; # rack 'em
-	delete @exclude{  # and break 'em
-	  @{ $options_r->{'include'} }
-	};
-      } else {
-	croak
-        "parameter for decode option 'include' must be a listref!"
-	  if $options_r->{'include'};
-	# If it's false, carry on silently
-      }
-    }
   }
   print "Exclusions: ", join(' ', map("<$_>", sort keys %exclude)), "\n"
     if $Debug;
 
-  my $event_callback = undef;
-  if(defined($options_r->{ 'event_callback' })) {
-    if( ref($options_r->{'event_callback'}) eq 'CODE' ) {
-      $event_callback = $options_r->{'event_callback'};
-    } else {
-      carp "parameter for decode option 'event_callback' is not a coderef!\n";
-    }
+  my $event_callback = Nil;
+  if %options<event_callback> {
+# TODO
   }
-  my $exclusive_event_callback = undef;
-  if(defined($options_r->{ 'exclusive_event_callback' })) {
-    if( ref($options_r->{'exclusive_event_callback'}) eq 'CODE' ) {
-      $exclusive_event_callback = $options_r->{'exclusive_event_callback'};
-    } else {
-      carp "parameter for decode option 'exclusive_event_callback' is not a coderef!\n";
-    }
+  my $exclusive_event_callback = Nil;
+  if %options<exclusive_event_callback> {
+# TODO
   }
 
 
   my $Pointer = 0; # points to where I am in the data
   ######################################################################
-  if($Debug) {
-    if($Debug == 1) {
-      print "Track data of ", length($$data_r), " bytes.\n";
+  if $Debug {
+    if $Debug == 1 {
+      print "Track data of ", $data.bytes, " bytes.\n";
     } else {
-      print "Track data of ", length($$data_r), " bytes: <", $$data_r ,">\n";
+      print "Track data of ", $data.bytes, " bytes: <", $data ,">\n";
     }
   }
 
+=begin pod
 =head1 EVENTS AND THEIR DATA TYPES
 
 =head2 DATA TYPES
@@ -407,150 +371,169 @@ And these are the events:
 =over
 
 =cut
+=end pod
+
   # Things I use variously, below.  They're here just for efficiency's sake,
   # to avoid remying on each iteration.
-  my($command, $channel, $parameter, $length, $time, $remainder);
+  my ($command, $channel, $parameter, $length, $time, $remainder);
 
   my $event_code = -1; # used for running status
 
   my $event_count = 0;
  Event:  # Analyze the event stream.
-  while($Pointer + 1 < length($$data_r)) {
+  while $Pointer + 1 < $data.bytes {
     # loop while there's anything to analyze ...
     my $eot = 0; # When 1, the event registrar aborts this loop
     ++$event_count;
 
-    my @E = ();
-    # E for events -- this is what we'll feed to the event registrar
+    my $E;
+    # E for event -- this is what we'll feed to the event registrar
     #  way at the end.
 
     # Slice off the delta time code, and analyze it
       #!# print "Chew-code <", substr($$data_r,$Pointer,4), ">\n";
-    ($time, $remainder) = unpack("wa*", substr($$data_r,$Pointer,4));
+    ($time, $remainder) = unpack("wa*", substr($data, $Pointer,4));
       #!# print "Delta-time $time using ", 4 - length($remainder), " bytes\n"
       #!#  if $Debug > 1;
-    $Pointer +=  4 - length($remainder);
+    $Pointer +=  4 - $remainder.bytes;
       # We do this strangeness with remainders because we don't know 
       #  how many bytes the w-decoding should move the pointer ahead.
 
     # Now let's see what we can make of the command
-    my $first_byte = ord(substr($$data_r, $Pointer, 1));
+    my $first_byte = substr($data, $Pointer, 1).ord;
       # Whatever parses $first_byte is responsible for moving $Pointer
       #  forward.
       #!#print "Event \# $event_count: $first_byte at track-offset $Pointer\n"
       #!#  if $Debug > 1;
 
     ######################################################################
-    if ($first_byte < 0xF0) { # It's a MIDI event ########################
-      if($first_byte >= 0x80) {
+    if $first_byte < 0xF0 { # It's a MIDI event ##########################
+      if $first_byte >= 0x80 {
 	print "Explicit event $first_byte" if $Debug > 2;
         ++$Pointer; # It's an explicit event.
         $event_code = $first_byte;
       } else {
         # It's a running status mofo -- just use last $event_code value
-        if($event_code == -1) {
-          warn "Uninterpretable use of running status; Aborting track."
+        if $event_code == -1 {
+          note "Uninterpretable use of running status; Aborting track."
             if $Debug;
           last Event;
         }
         # Let the argument-puller-offer move Pointer.
       }
-      $command = $event_code & 0xF0;
-      $channel = $event_code & 0x0F;
+      $command = $event_code +& 0xF0;
+      $channel = $event_code +& 0x0F;
 
-      if ($command == 0xC0 || $command == 0xD0) {
+      if $command == 0xC0 || $command == 0xD0 {
         #  Pull off the 1-byte argument
-        $parameter = substr($$data_r, $Pointer, 1);
+        $parameter = substr($data, $Pointer, 1);
         ++$Pointer;
       } else { # pull off the 2-byte argument
-        $parameter = substr($$data_r, $Pointer, 2);
+        $parameter = substr($data, $Pointer, 2);
         $Pointer += 2;
       }
 
       ###################################################################
       # MIDI events
 
+=begin pod
 =item ('note_off', I<dtime>, I<channel>, I<note>, I<velocity>)
 
 =cut 
-      if ($command      == 0x80) {
-	next if $exclude{'note_off'};
+=end pod
+      if $command      == 0x80 {
+	next if %exclude<note_off>;
         # for sake of efficiency
-        @E = ( 'note_off', $time,
-          $channel, unpack('C2', $parameter));
+        $E = MIDI::Event.new( type => 'note_off', delta-time => $time,
+          args => [$channel, unpack('C2', $parameter)]);
 
+=begin pod
 =item ('note_on', I<dtime>, I<channel>, I<note>, I<velocity>)
 
 =cut 
-      } elsif ($command == 0x90) {
-	next if $exclude{'note_on'};
-        @E = ( 'note_on', $time,
-          $channel, unpack('C2', $parameter));
+=end pod
+      } elsif $command == 0x90 {
+	next if %exclude<note_on>;
+        $E = MIDI::Event.new( type => 'note_on', delta-time => $time,
+          args => [$channel, unpack('C2', $parameter)]);
 
+=begin pod
 =item ('key_after_touch', I<dtime>, I<channel>, I<note>, I<velocity>)
 
 =cut 
-      } elsif ($command == 0xA0) {
-	next if $exclude{'key_after_touch'};
-        @E = ( 'key_after_touch', $time,
-          $channel, unpack('C2', $parameter));
+=end pod
+      } elsif $command == 0xA0 {
+	next if %exclude<key_after_touch>;
+        $E = MIDI::Event.new( type => 'key_after_touch', delta-time => $time,
+          args => [$channel, unpack('C2', $parameter)]);
 
+=begin pod
 =item ('control_change', I<dtime>, I<channel>, I<controller(0-127)>, I<value(0-127)>)
 
 =cut 
-      } elsif ($command == 0xB0) {
-	next if $exclude{'control_change'};
-        @E = ( 'control_change', $time,
-          $channel, unpack('C2', $parameter));
+=end pod
+      } elsif $command == 0xB0 {
+	next if %exclude<control_change>;
+        $E = MIDI::Event.new( type => 'control_change', delta-time =>$time,
+          args => [$channel, unpack('C2', $parameter)]);
 
+=begin pod
 =item ('patch_change', I<dtime>, I<channel>, I<patch>)
 
 =cut 
-      } elsif ($command == 0xC0) {
-	next if $exclude{'patch_change'};
-        @E = ( 'patch_change', $time,
-          $channel, unpack('C', $parameter));
+=end pod
+      } elsif $command == 0xC0 {
+	next if %exclude<patch_change>;
+        $E = MIDI::Event.new( type => 'patch_change', delta-time => $time,
+          args => [$channel, unpack('C', $parameter)]);
 
+=begin pod
 =item ('channel_after_touch', I<dtime>, I<channel>, I<velocity>)
 
 =cut 
-      } elsif ($command == 0xD0) {
-	next if $exclude{'channel_after_touch'};
+=end pod
+      } elsif $command == 0xD0 {
+	next if %exclude<channel_after_touch>;
         @E = ('channel_after_touch', $time,
           $channel, unpack('C', $parameter));
 
+=begin pod
 =item ('pitch_wheel_change', I<dtime>, I<channel>, I<pitch_wheel>)
 
 =cut 
-      } elsif ($command == 0xE0) {
-	next if $exclude{'pitch_wheel_change'};
+=end pod
+      } elsif $command == 0xE0 {
+	next if %exclude<pitch_wheel_change>;
         @E = ('pitch_wheel_change', $time,
           $channel, &read_14_bit($parameter) - 0x2000);
       } else {
-        warn  # Should be QUITE impossible!
+        note  # Should be QUITE impossible!
          "SPORK ERROR M:E:1 in track-offset $Pointer\n";
       }
 
     ######################################################################
-    } elsif($first_byte == 0xFF) { # It's a Meta-Event! ##################
+    } elsif $first_byte == 0xFF { # It's a Meta-Event! ##################
       ($command, $length, $remainder) =
-        unpack("xCwa*", substr($$data_r, $Pointer, 6));
-      $Pointer += 6 - length($remainder);
+        unpack("xCwa*", substr($data, $Pointer, 6));
+      $Pointer += 6 - $remainder.bytes;
         # Move past JUST the length-encoded.
 
+=begin pod
 =item ('set_sequence_number', I<dtime>, I<sequence>)
 
 =cut 
-      if($command      == 0x00) {
+=end pod
+      if $command      == 0x00 {
          @E = ('set_sequence_number',
 	       $time,
 	       unpack('n',
-		      substr($$data_r, $Pointer, $length)
+		      substr($data, $Pointer, $length)
 		     )
 	      );
 
       # Defined text events ----------------------------------------------
 
+=begin pod
 =item ('text_event', I<dtime>, I<text>)
 
 =item ('copyright_text_event', I<dtime>, I<text>)
@@ -582,124 +565,139 @@ And these are the events:
 =item ('text_event_0f', I<dtime>, I<text>)
 
 =cut 
-      } elsif($command == 0x01) {
+=end pod
+      } elsif $command == 0x01 {
          @E = ('text_event',
-           $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x02) {
+           $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x02 {
          @E = ('copyright_text_event',
-           $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x03) {
+           $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x03 {
          @E = ('track_name',
-           $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x04) {
+           $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x04 {
          @E = ('instrument_name',
-           $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x05) {
+           $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x05 {
          @E = ('lyric',
-           $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x06) {
+           $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x06 {
          @E = ('marker',
-           $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x07) {
+           $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x07 {
          @E = ('cue_point',
-          $time, substr($$data_r, $Pointer, $length));  # DTime, TData
+          $time, substr($data, $Pointer, $length));  # DTime, TData
 
       # Reserved but apparently unassigned text events --------------------
-      } elsif($command == 0x08) {
+      } elsif $command == 0x08 {
          @E = ('text_event_08',
-          $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x09) {
+          $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x09 {
          @E = ('text_event_09',
-          $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x0a) {
+          $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x0a {
          @E = ('text_event_0a',
-        $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x0b) {
+        $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x0b {
          @E = ('text_event_0b',
-          $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x0c) {
+          $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x0c {
          @E = ('text_event_0c',
-            $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x0d) {
+            $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x0d {
          @E = ('text_event_0d',
-          $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x0e) {
+          $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x0e {
          @E = ('text_event_0e',
-          $time, substr($$data_r, $Pointer, $length));  # DTime, TData
-      } elsif($command == 0x0f) {
+          $time, substr($data, $Pointer, $length));  # DTime, TData
+      } elsif $command == 0x0f {
          @E = ('text_event_0f',
-          $time, substr($$data_r, $Pointer, $length));  # DTime, TData
+          $time, substr($data, $Pointer, $length));  # DTime, TData
 
       # Now the sticky events ---------------------------------------------
 
+=begin pod
 =item ('end_track', I<dtime>)
 
 =cut
-      } elsif($command == 0x2F) {
+=end pod
+      } elsif $command == 0x2F {
          @E = ('end_track', $time );  # DTime
            # The code for handling this oddly comes LATER, in the
            #  event registrar.
 
+=begin pod
 =item ('set_tempo', I<dtime>, I<tempo>)
 
 =cut
-      } elsif($command == 0x51) {
+=end pod
+      } elsif $command == 0x51 {
          @E = ('set_tempo',
 	       $time,
 	       unpack("N",
-		      "\x00" . substr($$data_r, $Pointer, $length)
+		      "\x00" . substr($data, $Pointer, $length)
 		     )
 	      );  # DTime, Microseconds
 
+=begin pod
 =item ('smpte_offset', I<dtime>, I<hr>, I<mn>, I<se>, I<fr>, I<ff>)
 
 =cut
-      } elsif($command == 0x54) {
+=end pod
+      } elsif $command == 0x54 {
          @E = ('smpte_offset',
            $time,
 	   unpack("C*", # there SHOULD be exactly 5 bytes here
-		  substr($$data_r, $Pointer, $length)
+		  substr($data, $Pointer, $length)
 		 ));
 	 # DTime, HR, MN, SE, FR, FF
 
+=begin pod
 =item ('time_signature', I<dtime>, I<nn>, I<dd>, I<cc>, I<bb>)
 
 =cut
-      } elsif($command == 0x58) {
+=end pod
+      } elsif $command == 0x58 {
          @E = ('time_signature',
            $time,
 	   unpack("C*", # there SHOULD be exactly 4 bytes here
-		  substr($$data_r, $Pointer, $length)
+		  substr($data, $Pointer, $length)
 		 ));
 	 # DTime, NN, DD, CC, BB
 
+=begin pod
 =item ('key_signature', I<dtime>, I<sf>, I<mi>)
 
 =cut
-      } elsif($command == 0x59) {
+=end pod
+      } elsif $command == 0x59 {
          @E = ('key_signature',
            $time,
 	   unpack("cC", # there SHOULD be exactly 2 bytes here
-		  substr($$data_r, $Pointer, $length)
+		  substr($data, $Pointer, $length)
 		 ));
 	 # DTime, SF(signed), MI
 
+=begin pod
 =item ('sequencer_specific', I<dtime>, I<raw>)
 
 =cut
-      } elsif($command == 0x7F) {
+=end pod
+      } elsif $command == 0x7F {
          @E = ('sequencer_specific',
-           $time, substr($$data_r, $Pointer, $length));
+           $time, substr($data, $Pointer, $length));
 	 # DTime, Binary Data
 
+=begin pod
 =item ('raw_meta_event', I<dtime>, I<command>(0-255), I<raw>)
 
 =cut
+=end pod
       } else {
          @E = ('raw_meta_event',
 	       $time,
 	       $command,
-	       substr($$data_r, $Pointer, $length)
+	       substr($data, $Pointer, $length)
 	       # "[uninterpretable meta-event $command of length $length]"
 	      );
 	 # DTime, Command, Binary Data
@@ -709,9 +707,9 @@ And these are the events:
       $Pointer += $length; #  Now move Pointer
 
     ######################################################################
-    } elsif($first_byte == 0xF0   # It's a SYSEX
+    } elsif$first_byte == 0xF0   # It's a SYSEX
     #########################
-        || $first_byte == 0xF7) {
+        || $first_byte == 0xF7 {
       # Note that sysexes in MIDI /files/ are different than sysexes in
       #  MIDI transmissions!!
       # << The vast majority of system exclusive messages will just use the F0
@@ -723,17 +721,19 @@ And these are the events:
       # sysex; but the F7 (if there) is counted in the message's declared
       # length, so we don't have to think about it anyway.)
       ($command, $length, $remainder) =
-        unpack("Cwa*", substr($$data_r, $Pointer, 5));
-      $Pointer += 5 - length($remainder); # Move past just the encoding
+        unpack("Cwa*", substr($data, $Pointer, 5));
+      $Pointer += 5 - $remainder.length; # Move past just the encoding
 
+=begin pod
 =item ('sysex_f0', I<dtime>, I<raw>)
 
 =item ('sysex_f7', I<dtime>, I<raw>)
 
 =cut
-      @E = ( $first_byte == 0xF0 ?
-          'sysex_f0' : 'sysex_f7',
-          $time, substr($$data_r, $Pointer, $length) );  # DTime, Data
+=end pod
+      @E = ( $first_byte == 0xF0 ??
+          'sysex_f0' !! 'sysex_f7',
+          $time, substr($data, $Pointer, $length) );  # DTime, Data
       $Pointer += $length; #  Now move past the data
 
     ######################################################################
@@ -755,35 +755,41 @@ And these are the events:
     #
     
     ######################################################################
-    } elsif($first_byte == 0xF2) { # It's a Song Position ################
+    } elsif $first_byte == 0xF2 { # It's a Song Position ################
 
+=begin pod
 =item ('song_position', I<dtime>)
 
 =cut
+=end pod
       #  <song position msg> ::=     F2 <data pair>
       @E = ('song_position',
-        $time, &read_14_bit(substr($$data_r,$Pointer+1,2) )
+        $time, &read_14_bit(substr($data, $Pointer+1, 2) )
       ); # DTime, Beats
       $Pointer += 3; # itself, and 2 data bytes
 
     ######################################################################
-    } elsif($first_byte == 0xF3) { # It's a Song Select ##################
+    } elsif $first_byte == 0xF3 { # It's a Song Select ##################
 
+=begin pod
 =item ('song_select', I<dtime>, I<song_number>)
 
 =cut
+=end pod
       #  <song select msg> ::=       F3 <data singlet>
       @E = ( 'song_select',
-        $time, unpack('C', substr($$data_r,$Pointer+1,1) )
+        $time, unpack('C', substr($data, $Pointer+1, 1) )
       );  # DTime, Thing (?!) ... song number?  whatever that is
       $Pointer += 2;  # itself, and 1 data byte
 
     ######################################################################
-    } elsif($first_byte == 0xF6) { # It's a Tune Request! ################
+    } elsif $first_byte == 0xF6 { # It's a Tune Request! ################
 
+=begin pod
 =item ('tune_request', I<dtime>)
 
 =cut
+=end pod
       #  <tune request> ::=          F6
       @E = ( 'tune_request', $time );
       # DTime
@@ -811,21 +817,23 @@ And these are the events:
 # f4 f5 f9 fd -- unallocated
 
     ######################################################################
-    } elsif($first_byte > 0xF0) { # Some unknown kinda F-series event ####
+    } elsif $first_byte > 0xF0 { # Some unknown kinda F-series event ####
 
+=begin pod
 =item ('raw_data', I<dtime>, I<raw>)
 
 =cut
+=end pod
       # Here we only produce a one-byte piece of raw data.
       # But the encoder for 'raw_data' accepts any length of it.
-      @E = ( 'raw_data',
-	     $time, substr($$data_r,$Pointer,1) );
+      $E = MIDI::Event.new( type => 'raw_data',
+	     daleta-time => $time, args => [substr($data,$Pointer,1)] );
       # DTime and the Data (in this case, the one Event-byte)
       ++$Pointer;  # itself
 
     ######################################################################
     } else { # Fallthru.  How could we end up here? ######################
-      warn
+      note
         "Aborting track.  Command-byte $first_byte at track offset $Pointer";
       last Event;
     }
@@ -837,13 +845,13 @@ And these are the events:
     ##
     #   By the Power of Greyskull, I AM THE EVENT REGISTRAR!
     ##
-    if( @E and  $E[0] eq 'end_track'  ) {
+    if @E and  @E[0] eq 'end_track' {
       # This's the code for exceptional handling of the EOT event.
       $eot = 1;
-      unless( defined($options_r->{'no_eot_magic'})
-	      and $options_r->{'no_eot_magic'} ) {
-        if($E[1] > 0) {
-          @E = ('text_event', $E[1], '');
+      unless %options<no_eot_magic>
+	      and %options<no_eot_magic> {
+        if @E[1] > 0 {
+          @E = ('text_event', @E[1], '');
           # Make up a fictive 0-length text event as a carrier
           #  for the non-zero delta-time.
         } else {
@@ -853,26 +861,27 @@ And these are the events:
       }
     }
     
-    if( @E and  exists( $exclude{$E[0]} )  ) {
-      if($Debug) {
+    if @E and  %exclude{@E[0]} {
+      if $Debug {
         print " Excluding:\n";
-        &dump(@E);
+        dump(@E);
       }
     } else {
-      if($Debug) {
+      if $Debug {
         print " Processing:\n";
-        &dump(@E);
+        dump(@E);
       }
-      if(@E){
-	if( $exclusive_event_callback ) {
+      if @E {
+	if $exclusive_event_callback {
 	  &{ $exclusive_event_callback }( @E );
 	} else {
 	  &{ $event_callback }( @E ) if $event_callback;
-	  push(@events, [ @E ]);
+	  @events.push: @E;
 	}
       }
     }
 
+=begin pod
 =back
 
 Three of the above events are represented a bit oddly from the point
@@ -914,17 +923,20 @@ LoL to be an absolutely literal representation of the binary data,
 and/or vice versa.
 
 =cut
+=end pod
 
     last Event if $eot;
   }
   # End of the bigass "Event" while-block
 
-  return \@events;
+  return @events;
 }
 
 ###########################################################################
 
-sub encode { # encode an event structure, presumably for writing to a file
+my $last_status = -1;
+
+sub encode(*@events, *%options) { # encode an event structure, presumably for writing to a file
   # Calling format:
   #   $data_r = MIDI::Event::encode( \@event_lol, { options } );
   # Takes a REFERENCE to an event structure (a LoL)
@@ -937,42 +949,33 @@ sub encode { # encode an event structure, presumably for writing to a file
   # If you're doing this, consider the never_add_eot track option, as in
   #   print MIDI ${ encode( [ $event], { 'never_add_eot' => 1} ) };
 
-  my $events_r = $_[0];
-  my $options_r = ref($_[1]) eq 'HASH' ? $_[1] : {};
-  my @data = (); # what I'll store chunks of data in
   my $data = ''; # what I'll join @data all together into
 
-  croak "MIDI::Event::encode's argument must be an array reference!"
-    unless ref($events_r); # better be an array!
-  my @events = @$events_r;
-  # Yes, copy it.  This is so my end_track magic won't corrupt the original
+  my $unknown_callback = Nil;
+  $unknown_callback = %options<unknown_callback>;
 
-  my $unknown_callback = undef;
-  $unknown_callback = $options_r->{'unknown_callback'}
-    if ref($options_r->{'unknown_callback'}) eq 'CODE';
-
-  unless($options_r->{'never_add_eot'}) {
+  unless %options<never_add_eot> {
     # One way or another, tack on an 'end_track'
-    if(@events) { # If there's any events...
-      my $last = $events[ -1 ];
-      unless($last->[0] eq 'end_track') { # ...And there's no end_track already
-        if($last->[0] eq 'text_event' and length($last->[2]) == 0) {
+    if +@events { # If there are any events...
+      my $last = @events[ *-1 ];
+      unless $last.type eq 'end_track' { # ...And there's no end_track already
+        if $last.type eq 'text_event' and $last.args[2] == 0 {
 	  # 0-length text event at track-end.
-	  if($options_r->{'no_eot_magic'}) {
+	  if %options<no_eot_magic> {
 	    # Exceptional case: don't mess with track-final
 	    # 0-length text_events; just peg on an end_track
-	    push(@events, ['end_track', 0]);
+	    @events.push: MIDI::Event.new(type => 'end_track');
 	  } else {
 	    # NORMAL CASE: replace it with an end_track, leaving the DTime
-	    $last->[0] = 'end_track';
+	    $last.type('end_track');
 	  }
         } else {
           # last event was neither a 0-length text_event nor an end_track
-	  push(@events, ['end_track', 0]);
+	  @events.push: MIDI::Event.new(type => 'end_track');
         }
       }
     } else { # an eventless track!
-      @events = ['end_track',0];
+      @events = [ MIDI::Event.new(type => 'end_track') ];
     }
   }
 
@@ -980,77 +983,77 @@ sub encode { # encode an event structure, presumably for writing to a file
 #foreach(@events){ MIDI::Event::dump($_) }
 #print "--\n";
 
-  my $maybe_running_status = not $options_r->{'no_running_status'};
-  my $last_status = -1;
+  my $maybe_running_status = not %options<no_running_status>;
+  $last_status = -1;
 
-  # Here so we don't have to re-my on every iteration
-  my(@E, $event, $dtime, $event_data, $status, $parameters);
- Event_Encode:
-  foreach my $event_r (@events) {
-    next unless ref($event_r); # what'd such a thing ever be doing in here?
-    @E = @$event_r;
-     # Yes, copy it.  Otherwise the shifting'd corrupt the original
-    next unless @E;
+  join '', @events.map: { .encode-event };
+}
 
-    $event = shift @E;
-    next unless length($event);
+method encode-event(*%options) {
 
-    $dtime = int shift @E;
+  my ($event, $dtime, $event_data, $status, $parameters);
+my @data;
 
-    $event_data = '';
+  $event_data = '';
 
-    if(   # MIDI events -- eligible for running status
-       $event    eq 'note_on'
-       or $event eq 'note_off'
-       or $event eq 'control_change'
-       or $event eq 'key_after_touch'
-       or $event eq 'patch_change'
-       or $event eq 'channel_after_touch'
-       or $event eq 'pitch_wheel_change'  )
-    {
+  if   $!type eq 'note_off'
+    or $!type eq 'note_on'
+    or $!type eq 'key_after_touch'
+    or $!type eq 'control_change'
+    or $!type eq 'patch_change'
+    or $!type eq 'channel_after_touch'
+    or $!type eq 'pitch_wheel_change'
+  {
+    given $!type {
 #print "ziiz $event\n";
       # $status = $parameters = '';
       # This block is where we spend most of the time.  Gotta be tight.
 
-      if($event eq 'note_off'){
-	$status = 0x80 | (int($E[0]) & 0x0F);
+      when 'note_off' {
+	$status = 0x80 | @!args[0].int +& 0x0F;
 	$parameters = pack('C2',
-			   int($E[1]) & 0x7F, int($E[2]) & 0x7F);
-      } elsif($event eq 'note_on'){
-	$status = 0x90 | (int($E[0]) & 0x0F);
-	$parameters = pack('C2',
-			   int($E[1]) & 0x7F, int($E[2]) & 0x7F);
-      } elsif($event eq 'key_after_touch'){
-	$status = 0xA0 | (int($E[0]) & 0x0F);
-	$parameters = pack('C2',
-			   int($E[1]) & 0x7F, int($E[2]) & 0x7F);
-      } elsif($event eq 'control_change'){
-	$status = 0xB0 | (int($E[0]) & 0x0F);
-	$parameters = pack('C2',
-			   int($E[1]) & 0xFF, int($E[2]) & 0xFF);
-      } elsif($event eq 'patch_change'){
-	$status = 0xC0 | (int($E[0]) & 0x0F);
-	$parameters = pack('C',
-			   int($E[1]) & 0xFF);
-      } elsif($event eq 'channel_after_touch'){
-	$status = 0xD0 | (int($E[0]) & 0x0F);
-	$parameters = pack('C',
-			   int($E[1]) & 0xFF);
-      } elsif($event eq 'pitch_wheel_change'){
-	$status = 0xE0 | (int($E[0]) & 0x0F);
-        $parameters =  &write_14_bit(int($E[1]) + 0x2000);
-      } else {
-        die "BADASS FREAKOUT ERROR 31415!";
+			   @!args[1].int +& 0x7F, @!args[2].int +& 0x7F);
       }
-      # And now the encoding
-      push(@data,
-	($maybe_running_status  and  $status == $last_status) ?
-        pack('wa*', $dtime, $parameters) :  # If we can use running status.
+      when 'note_on' {
+	$status = 0x90 | @!args[0].int +& 0x0F;
+	$parameters = pack('C2',
+			   @!args[1].int +& 0x7F, @!args[2].int +& 0x7F);
+      }
+      when 'key_after_touch' {
+	$status = 0xA0 | @!args[0].int +& 0x0F;
+	$parameters = pack('C2',
+			   @!args[1].int +& 0x7F, @!args[2].int +& 0x7F);
+      }
+      when 'control_change' {
+	$status = 0xB0 | @!args[0].int +& 0x0F;
+	$parameters = pack('C2',
+			   @!args[1].int +& 0xFF, @!args[2].int +& 0xFF);
+      }
+      when 'patch_change' {
+	$status = 0xC0 | @!args[0].int +& 0x0F;
+	$parameters = pack('C',
+			   @!args[1].int +& 0xFF);
+      }
+      when 'channel_after_touch' {
+	$status = 0xD0 | @!args[0].int +& 0x0F;
+	$parameters = pack('C',
+			   @!args[1].int & 0xFF);
+      }
+      when 'pitch_wheel_change' {
+	$status = 0xE0 | @!args[0] +& 0x0F;
+        $parameters =  write-u14-bit(@!args[1].int + 0x2000);
+      }
+    }
+  # And now the encoding
+    @data.push:
+	( ! %options<no_running_status>  and  $status == $last_status) ??
+        pack('wa*', $dtime, $parameters) !!  # If we can use running status.
 	pack('wCa*', $dtime, $status, $parameters)  # If we can't.
-      );
+      ;
       $last_status = $status;
-      next;
-    } else {
+      return Buf.new: @data;
+    }
+
       # Not a MIDI event.
       # All the code in this block could be more efficient, but frankly,
       # this is not where the code needs to be tight.
@@ -1059,100 +1062,127 @@ sub encode { # encode an event structure, presumably for writing to a file
 #print "zaz $event\n";
       $last_status = -1;
 
-      if($event eq 'raw_meta_event') {
-	$event_data = pack("CCwa*", 0xFF, int($E[0]), length($E[1]), $E[1]);
+  given $!type {
+    when 'raw_meta_event' {
+      $event_data = pack("CCwa*", 0xFF, @!args[0].int, @!args[1].bytes, @!args[1]);
 
       # Text meta-events...
-      } elsif($event eq 'text_event') {
-	$event_data = pack("CCwa*", 0xFF, 0x01, length($E[0]), $E[0]);
-      } elsif($event eq 'copyright_text_event') {
-	$event_data = pack("CCwa*", 0xFF, 0x02, length($E[0]), $E[0]);
-      } elsif($event eq 'track_name') {
-	$event_data = pack("CCwa*", 0xFF, 0x03, length($E[0]), $E[0]);
-      } elsif($event eq 'instrument_name') {
-	$event_data = pack("CCwa*", 0xFF, 0x04, length($E[0]), $E[0]);
-      } elsif($event eq 'lyric') {
-	$event_data = pack("CCwa*", 0xFF, 0x05, length($E[0]), $E[0]);
-      } elsif($event eq 'marker') {
-	$event_data = pack("CCwa*", 0xFF, 0x06, length($E[0]), $E[0]);
-      } elsif($event eq 'cue_point') {
-	$event_data = pack("CCwa*", 0xFF, 0x07, length($E[0]), $E[0]);
-      } elsif($event eq 'text_event_08') {
-	$event_data = pack("CCwa*", 0xFF, 0x08, length($E[0]), $E[0]);
-      } elsif($event eq 'text_event_09') {
-	$event_data = pack("CCwa*", 0xFF, 0x09, length($E[0]), $E[0]);
-      } elsif($event eq 'text_event_0a') {
-	$event_data = pack("CCwa*", 0xFF, 0x0a, length($E[0]), $E[0]);
-      } elsif($event eq 'text_event_0b') {
-	$event_data = pack("CCwa*", 0xFF, 0x0b, length($E[0]), $E[0]);
-      } elsif($event eq 'text_event_0c') {
-	$event_data = pack("CCwa*", 0xFF, 0x0c, length($E[0]), $E[0]);
-      } elsif($event eq 'text_event_0d') {
-	$event_data = pack("CCwa*", 0xFF, 0x0d, length($E[0]), $E[0]);
-      } elsif($event eq 'text_event_0e') {
-	$event_data = pack("CCwa*", 0xFF, 0x0e, length($E[0]), $E[0]);
-      } elsif($event eq 'text_event_0f') {
-	$event_data = pack("CCwa*", 0xFF, 0x0f, length($E[0]), $E[0]);
+    }
+    when 'text_event' {
+      $event_data = pack("CCwa*", 0xFF, 0x01, @!args[0].bytes, @!args[0]);
+      }
+  when 'copyright_text_event' {
+	$event_data = pack("CCwa*", 0xFF, 0x02, @!args[0].bytes, @!args[0]);
+      }
+  when 'track_name' {
+	$event_data = pack("CCwa*", 0xFF, 0x03, @!args[0].bytes, @!args[0]);
+      }
+  when 'instrument_name' {
+	$event_data = pack("CCwa*", 0xFF, 0x04, @!args[0].bytes, @!args[0]);
+      }
+  when 'lyric' {
+	$event_data = pack("CCwa*", 0xFF, 0x05, @!args[0].bytes, @!args[0]);
+      }
+  when 'marker' {
+	$event_data = pack("CCwa*", 0xFF, 0x06, @!args[0].bytes, @!args[0]);
+      }
+  when 'cue_point' {
+	$event_data = pack("CCwa*", 0xFF, 0x07, @!args[0].bytes, @!args[0]);
+      }
+  when 'text_event_08' {
+	$event_data = pack("CCwa*", 0xFF, 0x08, @!args[0].bytes, @!args[0]);
+      }
+  when 'text_event_09' {
+	$event_data = pack("CCwa*", 0xFF, 0x09, @!args[0].bytes, @!args[0]);
+      }
+  when 'text_event_0a' {
+	$event_data = pack("CCwa*", 0xFF, 0x0a, @!args[0].bytes, @!args[0]);
+      }
+  when 'text_event_0b' {
+	$event_data = pack("CCwa*", 0xFF, 0x0b, @!args[0].bytes, @!args[0]);
+      }
+  when 'text_event_0c' {
+	$event_data = pack("CCwa*", 0xFF, 0x0c, @!args[0].bytes, @!args[0]);
+      }
+  when 'text_event_0d' {
+	$event_data = pack("CCwa*", 0xFF, 0x0d, @!args[0].bytes, @!args[0]);
+      }
+  when 'text_event_0e' {
+	$event_data = pack("CCwa*", 0xFF, 0x0e, @!args[0].bytes, @!args[0]);
+      }
+  when 'text_event_0f' {
+	$event_data = pack("CCwa*", 0xFF, 0x0f, @!args[0].bytes, @!args[0]);
       # End of text meta-events
 
-      } elsif($event eq 'end_track') {
+      }
+  when 'end_track' {
 	$event_data = "\xFF\x2F\x00";
-
-      } elsif($event eq 'set_tempo') {
+      }
+  when 'set_tempo' {
  	$event_data = pack("CCwa*", 0xFF, 0x51, 3,
-			    substr( pack('N', $E[0]), 1, 3
+			    substr( pack('N', @!args[0]), 1, 3
                           ));
-      } elsif($event eq 'smpte_offset') {
- 	$event_data = pack("CCwCCCCC", 0xFF, 0x54, 5, @E[0,1,2,3,4] );
-      } elsif($event eq 'time_signature') {
- 	$event_data = pack("CCwCCCC",  0xFF, 0x58, 4, @E[0,1,2,3] );
-      } elsif($event eq 'key_signature') {
- 	$event_data = pack("CCwcC",    0xFF, 0x59, 2, @E[0,1]);
-      } elsif($event eq 'sequencer_specific') {
- 	$event_data = pack("CCwa*",    0xFF, 0x7F, length($E[0]), $E[0]);
+      }
+  when 'smpte_offset' {
+ 	$event_data = pack("CCwCCCCC", 0xFF, 0x54, 5, @!args[0,1,2,3,4] );
+      }
+  when 'time_signature' {
+ 	$event_data = pack("CCwCCCC",  0xFF, 0x58, 4, @!args[0,1,2,3] );
+      }
+  when 'key_signature' {
+ 	$event_data = pack("CCwcC",    0xFF, 0x59, 2, @!args[0,1]);
+      }
+  when 'sequencer_specific' {
+ 	$event_data = pack("CCwa*",    0xFF, 0x7F, @!args[0], @!args[0]);
       # End of Meta-events
 
       # Other Things...
-      } elsif($event eq 'sysex_f0') {
- 	$event_data = pack("Cwa*", 0xF0, length($E[0]), $E[0]);
-      } elsif($event eq 'sysex_f7') {
- 	$event_data = pack("Cwa*", 0xF7, length($E[0]), $E[0]);
+      }
+  when 'sysex_f0' {
+ 	$event_data = pack("Cwa*", 0xF0, @!args[0].bytes, @!args[0]);
+      }
+  when 'sysex_f7' {
+ 	$event_data = pack("Cwa*", 0xF7, @!args[0].bytes, @!args[0]);
 
-      } elsif($event eq 'song_position') {
- 	$event_data = "\xF2" . &write_14_bit( $E[0] );
-      } elsif($event eq 'song_select') {
- 	$event_data = pack('CC', 0xF3, $E[0] );
-      } elsif($event eq 'tune_request') {
+      }
+  when 'song_position' {
+ 	$event_data = "\xF2" ~ write_14_bit( @!args[0] );
+      }
+  when 'song_select' {
+ 	$event_data = pack('CC', 0xF3, @!args[0] );
+      }
+  when 'tune_request' {
  	$event_data = "\xF6";
-      } elsif($event eq 'raw_data') {
- 	$event_data = $E[0];
+      }
+  when 'raw_data' {
+ 	$event_data = @!args[0];
       # End of Other Stuff
 
-      } else {
+      }
+  default {
 	# The Big Fallthru
-        if($unknown_callback) {
-	  push(@data, &{ $unknown_callback }( @$event_r ));
-        } else {
-          warn "Unknown event: \'$event\'\n";
-          # To surpress complaint here, just set
-          #  'unknown_callback' => sub { return () }
-        }
-	next;
+#NYI         if $!unknown_callback {
+#NYI 	  @data.append: $!unknown_callback( $event );
+#NYI         } else {
+#NYI           note "Unknown event: \'$event\'\n";
+#NYI           # To supress complaint here, just set
+#NYI           #  'unknown_callback' => sub { return () }
+#NYI         }
+#NYI 	next;
       }
 
 #print "Event $event encoded part 2\n";
-      push(@data, pack('wa*', $dtime, $event_data))
-        if length($event_data); # how could $event_data be empty
+      @data.push: pack('wa*', $dtime, $event_data)
+        if $event_data.bytes; # how could $event_data be empty
     }
-  }
-  $data = join('', @data);
-  return \$data;
+  return Buf.new: @data;
 }
 
 ###########################################################################
 
 ###########################################################################
 
+=begin pod
 =head1 MIDI BNF
 
 For your reference (if you can make any sense of it), here is a copy
@@ -1230,7 +1260,4 @@ Sean M. Burke C<sburke@cpan.org>  (Except the BNF --
 who knows who's behind that.)
 
 =cut
-
-1;
-
-__END__
+=end pod

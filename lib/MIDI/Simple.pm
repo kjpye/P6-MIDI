@@ -1,23 +1,22 @@
+unit class MIDI::Simple;
 
-# Time-stamp: "2010-12-23 09:19:57 conklin"
-require 5;
-package MIDI::Simple;
+use v6;
+
 use MIDI;
-use Carp;
-use strict 'vars';
-use strict 'subs';
-use vars qw(@ISA @EXPORT $VERSION $Debug
-            %package
-            %Volume @Note %Note %Length);
-use subs qw(&make_opus($\@) &write_score($$\@)
-            &read_score($) &dump_score(\@)
-           );
-require Exporter;
-@ISA = qw(Exporter);
-$VERSION = '0.83';
-$Debug = 0;
 
-@EXPORT = qw(
+#use vars qw(
+#            %package
+#            %Volume @Note %Note %Length);
+#use subs qw(&make_opus($\@) &write_score($$\@)
+#            &read_score($) &dump_score(\@)
+#           );
+#require Exporter;
+#my @ISA = qw(Exporter);
+
+my $VERSION = '0.84';
+my $Debug = 0;
+
+my @EXPORT = <
  new_score n r noop interval note_map
  Score   Time   Duration   Channel   Octave   Tempo   Notes   Volume
  Score_r Time_r Duration_r Channel_r Octave_r Tempo_r Notes_r Volume_r
@@ -38,19 +37,23 @@ $Debug = 0;
 
  sysex_f0 sysex_f7
  song_position song_select tune_request raw_data
-);     # _test_proc
+>;     # _test_proc
 
 local %package = ();
-# hash of package-scores: accessible as $MIDI::Simple::package{"packagename"}
-# but REALLY think twice about writing to it, OK?
-# To get at the current package's package-score object, just call
-#  $my_object = Self;
 
-# /
-#|  'Alchemical machinery runs smoothest in the imagination.'
-#|    -- Terence McKenna
-# \
+#'[
+  hash of package-scores: accessible as $MIDI::Simple::package{"packagename"}
+  but REALLY think twice about writing to it, OK?
+  To get at the current package's package-score object, just call
+   $my_object = Self;
 
+   /
+  |  'Alchemical machinery runs smoothest in the imagination.'
+  |    -- Terence McKenna
+   \
+]
+
+=begin pod
 =head1 NAME
 
 MIDI::Simple - procedural/OOP interface for MIDI composition
@@ -100,8 +103,9 @@ before .700 (but that was a I<looong> time ago).
 
 
 =cut
+=end pod
 
-%Volume = ( # I've simply made up these values from more or less nowhere.
+my %Volume = ( # I've simply made up these values from more or less nowhere.
 # You no like?  Change 'em at runtime, or just use "v64" or whatever,
 # to specify the volume as a number 1-127.
  'ppp' =>   1,  # pianississimo
@@ -116,7 +120,7 @@ before .700 (but that was a I<looong> time ago).
  'fff' => 127,  # fortississimo
 );
 
-%Length = ( # this list should be rather uncontroversial.
+my %Length = ( # this list should be rather uncontroversial.
  # The numbers here are multiples of a quarter note's length
  # The abbreviations are:
  #    qn for "quarter note",
@@ -141,7 +145,7 @@ before .700 (but that was a I<looong> time ago).
 
 );
 
-%Note = (
+my %Note = (
  'C'  =>  0,
  'Cs' =>  1, 'Df' =>  1, 'Csharp' =>  1, 'Dflat' =>  1,
  'D'  =>  2,
@@ -156,13 +160,14 @@ before .700 (but that was a I<looong> time ago).
  'B'  => 11,
 );
 
-@Note = qw(C Df  D Ef  E   F Gf  G Af  A Bf  B);
+my @Note = <C Df  D Ef  E   F Gf  G Af  A Bf  B>;
 # These are for converting note numbers to names, via, e.g., $Note[2]
 # These must be a subset of the keys to %Note.
 # You may choose to have these be your /favorite/ names for the particular
 # notes.  I've taken a stab at that myself.
 ###########################################################################
 
+=begin pod
 =head2 OBJECT STRUCTURE
 
 A MIDI::Simple object is a data structure with the following
@@ -289,25 +294,26 @@ Then it moves Time ahead as appropriate.  See the section "Parameters
 For n/r/noop", below.
 
 =cut
+=end pod
 
-sub n { # a note
-  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
-    ? (1, shift @_)
-    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  &MIDI::Simple::_parse_options($it, @_);
-  foreach my $note_val (@{$it->{"Notes"}}) {
+sub n(*@args) { # a note
+  my($am_method, $it) = (@args[0].WHAT eq "(MIDI::Simple)")
+    ?? (1, shift @args)
+    !! (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
+  MIDI::Simple::_parse_options($it, @args);
+  for @{$it->{"Notes"}} -> $note_val {
     # which should presumably not be a null list
-    unless($note_val =~ /^\d+$/) {
-      carp "note value \"$note_val\" from Notes is non-numeric!  Skipping.";
+    unless $note_val ~~ /^\d+$/ {
+      note "note value \"$note_val\" from Notes is non-numeric!  Skipping.";
       next;
     }
-    push @{$it->{"Score"}},
+    @{$it->{"Score"}}.push:
       ['note',
-       int(${$it->{"Time"}}),
-       int(${$it->{"Duration"}}),
-       int(${$it->{"Channel"}}),
-       int($note_val),
-       int(${$it->{"Volume"}}),
+       ${$it->{"Time"}}.int,
+       ${$it->{"Duration"}},int,
+       ${$it->{"Channel"}}.int,
+       $note_val.int,
+       ${$it->{"Volume"}}.int,
       ];
   }
   ${$it->{"Time"}} += ${$it->{"Duration"}};
@@ -315,6 +321,7 @@ sub n { # a note
 }
 ###########################################################################
 
+=begin pod
 =item r(...parameters...)  or  $obj->r(...parameters...)
 
 This is exactly like C<n>, except it never pushes anything to Score,
@@ -322,7 +329,7 @@ but moves ahead Time.  (In other words, there is no such thing as a
 rest-event; it's just a item during which there are no note-events
 playing.)
 
-=cut
+=end pod
 
 sub r { # a rest
   my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
