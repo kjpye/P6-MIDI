@@ -83,6 +83,9 @@ undocumented, as you should access it only thru here.)
 
 has $!from-file;
 has $!from-handle;
+has @.tracks;
+has $.ticks;
+has $.format;
 
 method TWEAK(*%args) {
 #  # Make a new MIDI opus object.
@@ -115,8 +118,6 @@ read the documentation for the C<copy> method in L<MIDI::Track>.
 
 =cut
 =end pod
-
-has @.tracks;
 
 method copy {
   # Duplicate a given opus.  Even dupes the tracks.
@@ -230,8 +231,6 @@ $tick_parameter, if provided.
 =cut
 =end pod
 
-has $.ticks;
-
 =begin pod
 =item the method $opus->format( $format )
 
@@ -240,9 +239,6 @@ $format, if provided.
 
 =cut
 =end pod
-
-
-has $.format;
 
 #NYI sub info { # read-only
 #NYI   # Hm, do I really want this routine?  For ANYTHING at all?
