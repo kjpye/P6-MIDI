@@ -112,10 +112,10 @@ sub getcompint($data, $pointer is rw) {
     my $value = 0;
     my $byte;
     while $byte = $data[$pointer++] +& 0x80 {
-	$value +< 7;
+	$value +<= 7;
         $value +|= $byte +& 0x7f;
     }
-    $value +> 7;
+    $value +<= 7;
     $value +|= $byte +& 0x7f;
 }
 
@@ -311,7 +311,7 @@ sub read_14_bit($in) {
   return ($b1.ord | ($b2.ord +< 7));
 }
 
-sub write_14_bit($in) {
+sub write-u14-bit($in) {
   # encode a 14 bit quantity, as needed for some events
   return
     pack("C2",
@@ -1221,7 +1221,7 @@ my @data;
 
       }
   when 'song_position' {
- 	$event_data = "\xF2" ~ write_14_bit( @!args[0] );
+ 	$event_data = "\xF2" ~ write-u14-bit( @!args[0] );
       }
   when 'song_select' {
  	$event_data = pack('CC', 0xF3, @!args[0] );

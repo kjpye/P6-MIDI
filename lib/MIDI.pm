@@ -5,7 +5,7 @@ use v6;
 use MIDI::Opus;
 use MIDI::Track;
 use MIDI::Event;
-use MIDI::Score;
+#use MIDI::Score;
 
 # Doesn't use MIDI::Simple -- but MIDI::Simple uses this
 
