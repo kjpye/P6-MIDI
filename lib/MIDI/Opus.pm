@@ -386,7 +386,7 @@ to C</dev/sequencer>, since MIDI files are not MIDI-on-the-wire.
 =end pod
 
 ###########################################################################
-method write_to_handle($fh, *%options) {
+method write-to-handle($fh, *%options) {
   # Call as $opus->write_to_handle( *FH{IO}, { ...options... });
 
   my $tracks = +@!tracks;
@@ -413,7 +413,7 @@ method write_to_handle($fh, *%options) {
     my $type = substr($track.type ~ "\x00\x00\x00\x00", 0, 4);
       # Force it to be 4 chars long.
     $data =  $track.encode(%options);
-      # $track->encode will handle the issue of whether
+      # $track.encode will handle the issue of whether
       #  to use the track's data or its events
     $fh.print: $type, pack('N', $data.bytes), $data; # TODO
   }
@@ -464,7 +464,7 @@ my $file-size-left; # TODO
 
     if $file-size-left.defined {
       $file-size-left -= 2;
-      fail "reading further would exceed file_size_limit"
+      fail "reading further would exceed file-size-limit"
 	if $file-size-left < 0;
     }
 

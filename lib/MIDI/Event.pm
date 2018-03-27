@@ -2,7 +2,7 @@ unit class MIDI::Event;
 
 use v6;
 
-my $Debug = 0;
+my $Debug = 1;
 my $VERSION = '0.84';
 
 #First 100 or so lines of this module are straightforward.  The actual
@@ -19,9 +19,9 @@ MIDI::Event - MIDI events
   die "No filename" unless @ARGV;
   use MIDI;  # which "use"s MIDI::Event;
   MIDI::Opus->new( {
-     "from_file" => $ARGV[0],
+     "from_file"                => $ARGV[0],
      "exclusive_event_callback" => sub{print "$_[2]\n"},
-     "include" => \@MIDI::Event::Text_events
+     "include"                  => \@MIDI::Event::Text_events
    } ); # These options percolate down to MIDI::Event::decode
   exit;
 
@@ -84,7 +84,7 @@ sub getubyte($data, $pointer is rw) {
 
 sub signextendbyte($byte) {
     if $byte +& 0x80 {
-        return 256 - $byte;
+        return $byte - 256;
     }
     $byte;
 }
@@ -305,7 +305,7 @@ method copy-structure {
 # with the actual encoding and decoding of binary MIDI data.
 ###########################################################################
 
-sub read_14_bit($in) {
+sub read-u14-bit($in) {
   # Decodes to a value 0 to 16383, as is used for some event encoding
   my ($b1, $b2) = $in.comb;
   return ($b1.ord | ($b2.ord +< 7));
@@ -424,13 +424,13 @@ And these are the events:
 =end pod
 
   # Things I use variously, below.  They're here just for efficiency's sake,
-  # to avoid remying on each iteration.
+  # to avoid re-mying on each iteration.
   my ($command, $channel, $parameter, $length, $time, $remainder);
 
   my $event_code = -1; # used for running status
 
   my $event_count = 0;
- Event:  # Analyze the event stream.
+Event:  # Analyze the event stream.
   while $Pointer + 1 < $data.bytes {
     # loop while there's anything to analyze ...
     my $eot = 0; # When 1, the event registrar aborts this loop
@@ -447,7 +447,7 @@ And these are the events:
       #!#  if $Debug > 1;
 
     # Now let's see what we can make of the command
-    my $first_byte = substr($data, $Pointer, 1).ord;
+    my $first_byte = subbuf($data, $Pointer, 1).ord;
       # Whatever parses $first_byte is responsible for moving $Pointer
       #  forward.
       #!#print "Event \# $event_count: $first_byte at track-offset $Pointer\n"
@@ -491,11 +491,14 @@ And these are the events:
       if $command      == 0x80 {
 	next if %exclude<note_off>;
         # for sake of efficiency
-        $E = MIDI::Event.new( type => 'note_off', delta-time => $time,
-          args => [$channel,
-                   $parameter[0],
-                   $parameter[1],
-	          ]);
+        $E = MIDI::Event.new( type       => 'note_off',
+			      delta-time => $time,
+			      args       => [
+					     $channel,
+					     $parameter[0],
+					     $parameter[1],
+					    ]
+			    );
 
 =begin pod
 =item ('note_on', I<dtime>, I<channel>, I<note>, I<velocity>)
@@ -504,11 +507,14 @@ And these are the events:
 =end pod
       } elsif $command == 0x90 {
 	next if %exclude<note_on>;
-        $E = MIDI::Event.new( type => 'note_on', delta-time => $time,
-          args => [$channel,
-                   $parameter[0],
-                   $parameter[1]
-                  ]);
+        $E = MIDI::Event.new( type       => 'note_on',
+			      delta-time => $time,
+			      args => [
+				       $channel,
+				       $parameter[0],
+				       $parameter[1]
+				      ]
+			    );
 
 =begin pod
 =item ('key_after_touch', I<dtime>, I<channel>, I<note>, I<velocity>)
@@ -547,8 +553,13 @@ And these are the events:
 =end pod
       } elsif $command == 0xC0 {
 	next if %exclude<patch_change>;
-        $E = MIDI::Event.new( type => 'patch_change', delta-time => $time,
-          args => [$channel, $parameter[0],]);
+        $E = MIDI::Event.new( type       => 'patch_change',
+			      delta-time => $time,
+			      args       => [
+					     $channel,
+					     $parameter[0],
+					    ]
+			    );
 
 =begin pod
 =item ('channel_after_touch', I<dtime>, I<channel>, I<velocity>)
@@ -557,8 +568,13 @@ And these are the events:
 =end pod
       } elsif $command == 0xD0 {
 	next if %exclude<channel_after_touch>;
-        $E = MIDI::Event.new( type => 'channel_after_touch', delta-time => $time,
-          args => [$channel, $parameter[0],]);
+        $E = MIDI::Event.new( type       => 'channel_after_touch',
+			      delta-time => $time,
+			      args       => [
+					     $channel,
+					     $parameter[0],
+					    ]
+			    );
 
 =begin pod
 =item ('pitch_wheel_change', I<dtime>, I<channel>, I<pitch_wheel>)
@@ -567,8 +583,13 @@ And these are the events:
 =end pod
       } elsif $command == 0xE0 {
 	next if %exclude<pitch_wheel_change>;
-        $E = MIDI::Event.new( type => 'pitch_wheel_change', delta-time => $time,
-          args => [$channel, &read_14_bit($parameter) - 0x2000]);
+        $E = MIDI::Event.new( type       => 'pitch_wheel_change',
+			      delta-time => $time,
+			      args       => [
+					     $channel,
+					     &read-u14-bit($parameter) - 0x2000
+					    ]
+			    );
       } else {
         note  # Should be QUITE impossible!
          "SPORK ERROR M:E:1 in track-offset $Pointer\n";
@@ -584,12 +605,14 @@ And these are the events:
 
 =cut 
 =end pod
-      if $command      == 0x00 {
-         $E = MIDI::Event.new( type => 'set_sequence_number',
-	       delta-time => $time,
-	       args => [getushort($data, $Pointer),
-		       ]
-	      );
+  given $command {
+      when 0x00 {
+         $E = MIDI::Event.new( type       => 'set_sequence_number',
+                               delta-time => $time,
+                               args       => [
+					       getushort($data, $Pointer),
+					     ]
+                             );
 
       # Defined text events ----------------------------------------------
 
@@ -627,56 +650,128 @@ And these are the events:
 =cut 
 '
 =end pod
-      } elsif $command == 0x01 {
-         $E =  MIDI::Event.new( type => 'text_event',
-           delta-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
-      } elsif $command == 0x02 {
-         $E = MIDI::Event.new( type => 'copyright_text_event',
-           delta-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
-      } elsif $command == 0x03 {
-         $E = MIDI::Event.new( type => 'track_name',
-           delta-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
-      } elsif $command == 0x04 {
-         $E = MIDI::Event.new( type => 'instrument_name',
-           delta-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
-      } elsif $command == 0x05 {
-         $E = MIDI::Event.new( type => 'lyric',
-           delat-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
-      } elsif $command == 0x06 {
-         $E = MIDI.Event.new( type => 'marker',
-           delta-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
-      } elsif $command == 0x07 {
-         $E = MIDI::Event.new( type => 'cue_point',
-          delta-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
+      } 
+      when 0x01 {
+         $E =  MIDI::Event.new( type       => 'text_event',
+                                delta-time => $time,
+                                args       => [
+                                                subbuf($data, $Pointer, $length)
+                                              ]
+                              );  # DTime, TData
+      } 
+      when 0x02 {
+         $E = MIDI::Event.new( type       => 'copyright_text_event',
+                               delta-time => $time,
+                               args       => [
+                                               subbuf($data, $Pointer, $length)
+                                             ]
+                             );  # DTime, TData
+      }
+      when 0x03 {
+         $E = MIDI::Event.new( type       => 'track_name',
+                               delta-time => $time,
+                               args       => [
+                                               subbuf($data, $Pointer, $length)
+                                             ]
+                             );  # DTime, TData
+      }
+      when 0x04 {
+         $E = MIDI::Event.new( type       => 'instrument_name',
+                               delta-time => $time,
+                               args       => [
+                                               subbuf($data, $Pointer, $length)
+                                             ]
+                             );  # DTime, TData
+      }
+      when 0x05 {
+         $E = MIDI::Event.new( type       => 'lyric',
+                               delta-time => $time,
+                               args       => [
+                                               subbuf($data, $Pointer, $length)
+                                             ]
+                             );  # DTime, TData
+      }
+      when 0x06 {
+         $E = MIDI.Event.new( type       => 'marker',
+                              delta-time => $time,
+                              args       => [
+                                               subbuf($data, $Pointer, $length)
+                                             ]
+                            );  # DTime, TData
+      }
+      when 0x07 {
+         $E = MIDI::Event.new( type       => 'cue_point',
+                               delta-time => $time,
+                               args       => [
+                                              subbuf($data, $Pointer, $length)
+                                             ]
+                             );  # DTime, TData
 
       # Reserved but apparently unassigned text events --------------------
-      } elsif $command == 0x08 {
-         $E = MIDI::Event.new( type => 'text_event_08',
-          delta-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
-      } elsif $command == 0x09 {
-         $E = MIDI::Event.new( type => 'text_event_09',
-          delta-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
-      } elsif $command == 0x0a {
-         $E = MIDI::Event.new( type => 'text_event_0a',
-        delta-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
-      } elsif $command == 0x0b {
-         $E = MIDI::Event.new(
-                type => 'text_event_0b',
-                delta-time => $time,
-                args => [substr($data, $Pointer, $length)] # DTime, TData
-              );
-      } elsif $command == 0x0c {
-         $E = MIDI::Event.new( type => 'text_event_0c',
-            delta-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
-      } elsif $command == 0x0d {
-         $E = MIDI::Event.new( type => 'text_event_0d',
-          delta-time => $time, aergs => [substr($data, $Pointer, $length)]);  # DTime, TData
-      } elsif $command == 0x0e {
-         $E = MIDI::Event.new( type => 'text_event_0e',
-          delta-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
-      } elsif $command == 0x0f {
-         $E = MIDI::Event.new( type => 'text_event_0f',
-          delta-time => $time, args => [substr($data, $Pointer, $length)]);  # DTime, TData
+      }
+      when 0x08 {
+         $E = MIDI::Event.new( type       => 'text_event_08',
+                               delta-time => $time,
+                               args       => [
+                                               subbuf($data, $Pointer, $length)
+                                             ]
+                            );  # DTime, TData
+      }
+      when 0x09 {
+         $E = MIDI::Event.new( type       => 'text_event_09',
+                               delta-time => $time,
+                               args       => [
+                                               subbuf($data, $Pointer, $length)
+                                             ]
+                             );  # DTime, TData
+      }
+      when 0x0a {
+         $E = MIDI::Event.new( type       => 'text_event_0a',
+                               delta-time => $time,
+                               args       => [
+                                               subbuf($data, $Pointer, $length)
+                                             ]
+                             );  # DTime, TData
+      }
+      when 0x0b {
+         $E = MIDI::Event.new( type       => 'text_event_0b',
+                               delta-time => $time,
+                               args       => [
+                                               subbuf($data, $Pointer, $length)
+                                             ] # DTime, TData
+                             );
+      }
+      when 0x0c {
+         $E = MIDI::Event.new( type       => 'text_event_0c',
+                               delta-time => $time,
+                               args       => [
+                                               subbuf($data, $Pointer, $length)
+                                             ]
+                             );  # DTime, TData
+      }
+      when 0x0d {
+         $E = MIDI::Event.new( type       => 'text_event_0d',
+                               delta-time => $time,
+                               args       => [
+                                               subbuf($data, $Pointer, $length)
+                                             ]
+                            );  # DTime, TData
+      }
+      when 0x0e {
+         $E = MIDI::Event.new( type       => 'text_event_0e',
+                               delta-time => $time,
+                               args       => [
+                                                 subbuf($data, $Pointer, $length)
+                                             ]
+                             );  # DTime, TData
+      }
+      when 0x0f {
+         $E = MIDI::Event.new( type       => 'text_event_0f',
+                               delta-time => $time,
+                               args       => [
+                                              subbuf($data, $Pointer, $length)
+                                             ]
+                             );  # DTime, TData
 
       # Now the sticky events ---------------------------------------------
 
@@ -685,8 +780,11 @@ And these are the events:
 
 =cut
 =end pod
-      } elsif $command == 0x2F {
-         $E = MIDI::Event.new( type => 'end_track', delta-time => $time );  # DTime
+      }
+      when 0x2F {
+         $E = MIDI::Event.new( type       => 'end_track',
+                               delta-time => $time
+                             );  # DTime
            # The code for handling this oddly comes LATER, in the
            #  event registrar.
 
@@ -695,93 +793,102 @@ And these are the events:
 
 =cut
 =end pod
-      } elsif $command == 0x51 {
-         $E = MIDI::Event.new( type => 'set_tempo',
-	       delta-time => $time,
-	       args => [
-                          getint24($data),
-		       ]
-	      );  # DTime, Microseconds
+      }
+      when 0x51 {
+         $E = MIDI::Event.new( type       => 'set_tempo',
+                               delta-time => $time,
+                               args       => [
+                                               getint24($data),
+                                             ]
+                             );  # DTime, Microseconds
 
 =begin pod
 =item ('smpte_offset', I<dtime>, I<hr>, I<mn>, I<se>, I<fr>, I<ff>)
 
 =cut
 =end pod
-      } elsif $command == 0x54 {
-         $E = MIDI::Event.new( type => 'smpte_offset',
-           delta-time => $time,
-	   args => [
-                     $data[$Pointer],
-                     $data[$Pointer+1],
-                     $data[$Pointer+2],
-                     $data[$Pointer+3],
-                     $data[$Pointer+4],
-                   ]		   
-         );
-	 # DTime, HR, MN, SE, FR, FF
+      }
+      when 0x54 {
+         $E = MIDI::Event.new( type       => 'smpte_offset',
+                               delta-time => $time,
+                               args       => [
+                                               $data[$Pointer],
+                                               $data[$Pointer+1],
+                                               $data[$Pointer+2],
+                                               $data[$Pointer+3],
+                                               $data[$Pointer+4],
+                                            ]
+                             ); # DTime, HR, MN, SE, FR, FF
 
 =begin pod
 =item ('time_signature', I<dtime>, I<nn>, I<dd>, I<cc>, I<bb>)
 
 =cut
 =end pod
-      } elsif $command == 0x58 {
-         $E = MIDI::Event.new( type => 'time_signature',
-           delta-time => $time,
-	   args => [
-                     $data[$Pointer],
-                     $data[$Pointer+1],
-                     $data[$Pointer+2],
-                     $data[$Pointer+3],
-		   ]
-         );
-	 # DTime, NN, DD, CC, BB
+      }
+      when 0x58 {
+         $E = MIDI::Event.new( type       => 'time_signature',
+                               delta-time => $time,
+                               args       => [
+                                               $data[$Pointer],
+                                               $data[$Pointer+1],
+                                               $data[$Pointer+2],
+                                               $data[$Pointer+3],
+                                            ]
+                            ); # DTime, NN, DD, CC, BB
 
 =begin pod
 =item ('key_signature', I<dtime>, I<sf>, I<mi>)
 
 =cut
 =end pod
-      } elsif $command == 0x59 {
-         $E = MIDI::Event.new( type => 'key_signature',
-           delta-time => $time,
-	   args => [
-                     signextendbyte($data[0]),
-                     $data[1], # unsigned
-                   ]
-         ); # DTime, SF(signed), MI
+      }
+      when 0x59 {
+         $E = MIDI::Event.new( type       => 'key_signature',
+                               delta-time => $time,
+                               args       => [
+                                               signextendbyte($data[0]),
+                                               $data[1], # unsigned
+                                             ]
+                            ); # DTime, SF(signed), MI
 
 =begin pod
 =item ('sequencer_specific', I<dtime>, I<raw>)
 
 =cut
 =end pod
-      } elsif $command == 0x7F {
-         $E = MIDI::Event.new( type => 'sequencer_specific',
-           delta-time => $time, args => [substr($data, $Pointer, $length)]);
-	 # DTime, Binary Data
+      }
+      when 0x7F {
+         $E = MIDI::Event.new( type       => 'sequencer_specific',
+                               delta-time => $time,
+                               args       => [
+                                               subbuf($data, $Pointer, $length)
+                                             ]
+                             ); # DTime, Binary Data
 
 =begin pod
 =item ('raw_meta_event', I<dtime>, I<command>(0-255), I<raw>)
 
 =cut
 =end pod
-      } else {
-         $E = MIDI::Event.new( type => 'raw_meta_event',
-	       delta-time => $time,
-	       args => [$command,
-	       substr($data, $Pointer, $length)
-	       # "[uninterpretable meta-event $command of length $length]"
-	      ]);
-	 # DTime, Command, Binary Data
+      }
+    default {
+         $E = MIDI::Event.new( type       => 'raw_meta_event',
+                       	       delta-time => $time,
+                   	       args       => [
+                                               $command,
+                                               subbuf($data, $Pointer, $length)
+                                                 # "[uninterpretable meta-event $command of length $length]"
+                                             ]
+                            ); # DTime, Command, Binary Data
            # It's uninterpretable; record it as raw_data.
       } # End of the meta-event ifcase.
+    }
 
       $Pointer += $length; #  Now move Pointer
 
     ######################################################################
-    } elsif$first_byte == 0xF0   # It's a SYSEX
+    } elsif $first_byte == 0xF0   # It's a SYSEX
     #########################
         || $first_byte == 0xF7 {
       # Note that sysexes in MIDI /files/ are different than sysexes in
@@ -804,9 +911,11 @@ And these are the events:
 
 =cut
 =end pod
-      $E = MIDI::Event.new( type => $first_byte == 0xF0 ??
-          'sysex_f0' !! 'sysex_f7',
-          delta-time => $time, args => [substr($data, $Pointer, $length)] );  # DTime, Data
+      $E = MIDI::Event.new( type       => $first_byte == 0xF0 ??
+			                      'sysex_f0' !!
+                                              'sysex_f7',
+                            delta-time => $time,
+			    args       => [subbuf($data, $Pointer, $length)] );  # DTime, Data
       $Pointer += $length; #  Now move past the data
 
     ######################################################################
@@ -836,8 +945,11 @@ And these are the events:
 =cut
 =end pod
       #  <song position msg> ::=     F2 <data pair>
-      $E = MIDI::Event.new( type => 'song_position',
-        delta-time => $time, args => [&read_14_bit(substr($data, $Pointer+1, 2) )]
+      $E = MIDI::Event.new( type       => 'song_position',
+                            delta-time => $time,
+			    args        => [
+					     &read-u14-bit(subbuf($data, $Pointer+1, 2) )
+					   ]
       ); # DTime, Beats
       $Pointer += 3; # itself, and 2 data bytes
 
@@ -867,7 +979,9 @@ And these are the events:
 =cut
 =end pod
       #  <tune request> ::=          F6
-      $E = MIDI::Event.new( type => 'tune_request', delta-time => $time );
+  $E = MIDI::Event.new( type       => 'tune_request',
+			delta-time => $time
+		      );
       # DTime
       # What the Sam Scratch would a tune request be doing in a MIDI /file/?
       ++$Pointer;  # itself
@@ -902,8 +1016,12 @@ And these are the events:
 =end pod
       # Here we only produce a one-byte piece of raw data.
       # But the encoder for 'raw_data' accepts any length of it.
-      $E = MIDI::Event.new( type => 'raw_data',
-	     daleta-time => $time, args => [substr($data,$Pointer,1)] );
+      $E = MIDI::Event.new( type       => 'raw_data',
+                            delta-time => $time,
+			    args       => [
+					    subbuf($data,$Pointer,1)
+					  ]
+			  );
       # DTime and the Data (in this case, the one Event-byte)
       ++$Pointer;  # itself
 
@@ -927,7 +1045,9 @@ And these are the events:
       unless %options<no_eot_magic>
 	      and %options<no_eot_magic> {
         if $E.delta-time > 0 {
-          $E = MIDI::Event.new( type => 'text_event', $E[1], '');
+          $E = MIDI::Event.new( type       => 'text_event',
+				delta-time => $E[1]
+			      );
           # Make up a fictive 0-length text event as a carrier
           #  for the non-zero delta-time.
         } else {
@@ -936,7 +1056,7 @@ And these are the events:
         }
       }
     }
-    
+
     if $E and  %exclude{$E.type} {
       if $Debug {
         print " Excluding:\n";
@@ -1013,7 +1133,7 @@ and/or vice versa.
 my $last_status = -1;
 
 sub encode(*@events, *%options) { # encode an event structure, presumably for writing to a file
-  # Calling format:
+ # Calling format:
   #   $data_r = MIDI::Event::encode( \@event_lol, { options } );
   # Takes a REFERENCE to an event structure (a LoL)
   # Returns an (unblessed) REFERENCE to track data.
@@ -1195,7 +1315,7 @@ my @data;
       }
   when 'set_tempo' {
  	$event_data = pack("CCwa*", 0xFF, 0x51, 3,
-			    substr( pack('N', @!args[0]), 1, 3
+			    subbuf( pack('N', @!args[0]), 1, 3
                           ));
       }
   when 'smpte_offset' {

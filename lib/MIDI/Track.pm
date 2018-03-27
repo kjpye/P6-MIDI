@@ -2,8 +2,12 @@ unit class MIDI::Track;
 
 use v6;
 
-my $Debug = 0;
-my$VERSION = '0.83';
+my $Debug = 1;
+my $VERSION = '0.83';
+
+has @.events;
+has $.type;
+has $.data;
 
 =begin pod
 =head1 NAME
@@ -172,8 +176,6 @@ track for some reason, use MIDI::Event::copy_structure.)
 =cut
 =end pod
 
-has @.events;
-
 method copy {
   # Duplicate a given track.  Even dupes the events.
   # Call as $new_one = $track->copy
@@ -272,8 +274,6 @@ Track types must be 4 bytes long; see L<MIDI::Filespec> for details.
 =cut
 =end pod
 
-has $.type;
-
 =begin pod
 =item the method $track->data( $kooky_binary_data )
 
@@ -284,8 +284,6 @@ $track->data(undef) is how to undefine the data for a track.
 
 =cut
 =end pod
-
-has $.data;
 
 ###########################################################################
 
@@ -336,16 +334,16 @@ method dump(*%options) { # dump a track's contents
   my @events = @!events;
   print(
 	$indent, 'MIDI::Track->new({', "\n",
-	$indent, "  'type' => ", MIDI::_dump_quote($type), ",\n",
+	$indent, "  'type' => ", MIDI::dump-quote($type), ",\n",
 	$!data.defined ??
 	  ( $indent, "  'data' => ",
-	    MIDI::_dump_quote($!data), ",\n" )
+	    MIDI::dump-quote($!data), ",\n" )
 	  !! (),
 	$indent, "  'events' => [  # ", +@!events, " events.\n",
        );
   for @events -> $event {
     $event.dump;
-    # was: print( $indent, "    [", &MIDI::_dump_quote(@$event), "],\n" );
+    # was: print( $indent, "    [", &MIDI::dump-quote(@$event), "],\n" );
   }
   print( "$indent  ]\n$indent}),\n$indent\n" );
   return;
@@ -357,7 +355,7 @@ method dump(*%options) { # dump a track's contents
 #
 method encode(*%options) { # encode a track object into track data (not a chunk)
   # Calling format:
-  #  $data_r = $track->encode( { .. options .. } )
+  #  $data = $track.encode( { .. options .. } )
   # The (optional) argument is an anonymous hash of options.
   # Returns a REFERENCE to track data.
   #

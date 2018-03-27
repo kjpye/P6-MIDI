@@ -5,7 +5,7 @@ use v6;
 use MIDI::Opus;
 use MIDI::Track;
 use MIDI::Event;
-#use MIDI::Score;
+use MIDI::Score;
 
 # Doesn't use MIDI::Simple -- but MIDI::Simple uses this
 
@@ -24,30 +24,41 @@ MIDI - read, compose, modify, and write MIDI files
 =head1 SYNOPSIS
 
  use MIDI;
- use strict;
- use warnings;
+
  my @events = (
-   ['text_event',0, 'MORE COWBELL'],
-   ['set_tempo', 0, 450_000], # 1qn = .45 seconds
+   MIDI::Event.new(type       => 'text_event',
+                   delta-time => 0,
+                   args       => ('MORE COWBELL')),
+   MIDI::Event.new(type       => 'set_tempo',
+                   delta-time => 0,
+                   args       => (450_000,)), # 1qn = .45 seconds
  );
 
  for (1 .. 20) {
-   push @events,
-     ['note_on' , 90,  9, 56, 127],
-     ['note_off',  6,  9, 56, 127],
+   @events.append:
+     MIDI::Event.new(type       => 'note_on',
+                     delta-time => 90,
+                     args       => (9, 56, 127)),
+     MIDI::Event.new(type       => 'note_off',
+                     delta-time => 6,
+                     args       => (9, 56, 127)),
    ;
  }
  foreach my $delay (reverse(1..96)) {
-   push @events,
-     ['note_on' ,      0,  9, 56, 127],
-     ['note_off', $delay,  9, 56, 127],
+   @events.append:
+     MIDI::Event.new(type       => 'note_on',
+                     delta-time => 0,
+                     args       => (9, 56, 127)),
+     MIDI::Event.new(type       => 'note_off',
+                     delta-time => $delay,
+                     args       => (9, 56, 127)),
    ;
  }
 
- my $cowbell_track = MIDI::Track->new({ 'events' => \@events });
- my $opus = MIDI::Opus->new(
-  { 'format' => 0, 'ticks' => 96, 'tracks' => [ $cowbell_track ] } );
- $opus->write_to_file( 'cowbell.mid' );
+ my $cowbell-track = MIDI::Track.new({ 'events' => @events });
+ my $opus = MIDI::Opus.new(
+  { format => 0, ticks => 96, tracks => [ $cowbell-track ] } );
+ $opus.write-to-file( 'cowbell.mid' );
 
 
 =head1 DESCRIPTION
@@ -60,7 +71,7 @@ From FOLDOC (C<http://wombat.doc.ic.ac.uk/foldoc/>):
 =over
 
 B<MIDI, Musical Instrument Digital Interface>
-                                       
+
 E<lt>multimedia, file formatE<gt> (MIDI /mi'-dee/, /mee'-dee/) A
 hardware specification and protocol used to communicate note and
 effect information between synthesisers, computers, music keyboards,
@@ -126,8 +137,6 @@ it does provide some hashes you might find useful:
 
 =over
 
-=cut
-
 ###########################################################################
 # Note numbers => a representation of them
 
@@ -138,10 +147,9 @@ comprehensible representation (e.g., 68 to 'Gs4', for G-sharp, octave
 4); C<%MIDI::note2number> is the reverse.  Have a look at the source
 to see the contents of the hash.
 
-=cut
 =end pod
 
-my %number2note = 0 .. 127 => (
+my %number2note = 0 .. 127 Z=> (
 # (Do)        (Re)         (Mi)  (Fa)         (So)         (La)        (Ti)
  'C0', 'Cs0', 'D0', 'Ds0', 'E0', 'F0', 'Fs0', 'G0', 'Gs0', 'A0', 'As0', 'B0',
  'C1', 'Cs1', 'D1', 'Ds1', 'E1', 'F1', 'Fs1', 'G1', 'Gs1', 'A1', 'As1', 'B1',
@@ -180,65 +188,62 @@ to see the contents of the hash.
 =cut
 =end pod
 
-my %number2patch = 0 .. 127 => (   # The General MIDI map: patches 0 to 127
+my %number2patch = 0 .. 127 Z=> (   # The General MIDI map: patches 0 to 127
 #0: Piano
- "Acoustic Grand", "Bright Acoustic", "Electric Grand", "Honky-Tonk",
- "Electric Piano 1", "Electric Piano 2", "Harpsichord", "Clav",
+ "Acoustic Grand",         "Bright Acoustic",        "Electric Grand",        "Honky-Tonk",
+ "Electric Piano 1",       "Electric Piano 2",       "Harpsichord",           "Clav",
 # Chrom Percussion
- "Celesta", "Glockenspiel", "Music Box", "Vibraphone",
- "Marimba", "Xylophone", "Tubular Bells", "Dulcimer",
+ "Celesta",                "Glockenspiel",           "Music Box",             "Vibraphone",
+ "Marimba",                "Xylophone",              "Tubular Bells",         "Dulcimer",
 
 #16: Organ
- "Drawbar Organ", "Percussive Organ", "Rock Organ", "Church Organ",
- "Reed Organ", "Accordion", "Harmonica", "Tango Accordion",
+ "Drawbar Organ",          "Percussive Organ",       "Rock Organ",            "Church Organ",
+ "Reed Organ",             "Accordion",              "Harmonica",             "Tango Accordion",
 # Guitar
- "Acoustic Guitar(nylon)", "Acoustic Guitar(steel)",
- "Electric Guitar(jazz)", "Electric Guitar(clean)",
- "Electric Guitar(muted)", "Overdriven Guitar",
- "Distortion Guitar", "Guitar Harmonics",
+ "Acoustic Guitar(nylon)", "Acoustic Guitar(steel)", "Electric Guitar(jazz)", "Electric Guitar(clean)",
+ "Electric Guitar(muted)", "Overdriven Guitar",      "Distortion Guitar",     "Guitar Harmonics",
 
 #32: Bass
- "Acoustic Bass", "Electric Bass(finger)",
- "Electric Bass(pick)", "Fretless Bass",
- "Slap Bass 1", "Slap Bass 2", "Synth Bass 1", "Synth Bass 2",
+ "Acoustic Bass",          "Electric Bass(finger)",  "Electric Bass(pick)",   "Fretless Bass",
+ "Slap Bass 1",            "Slap Bass 2",            "Synth Bass 1",          "Synth Bass 2",
 # Strings
- "Violin", "Viola", "Cello", "Contrabass",
- "Tremolo Strings", "Pizzicato Strings", "Orchestral Strings", "Timpani",
+ "Violin",                 "Viola",                  "Cello",                 "Contrabass",
+ "Tremolo Strings",        "Pizzicato Strings",      "Orchestral Strings",    "Timpani",
 
 #48: Ensemble
- "String Ensemble 1", "String Ensemble 2", "SynthStrings 1", "SynthStrings 2",
- "Choir Aahs", "Voice Oohs", "Synth Voice", "Orchestra Hit",
+ "String Ensemble 1",      "String Ensemble 2",      "SynthStrings 1",        "SynthStrings 2",
+ "Choir Aahs",             "Voice Oohs",             "Synth Voice",           "Orchestra Hit",
 # Brass
- "Trumpet", "Trombone", "Tuba", "Muted Trumpet",
- "French Horn", "Brass Section", "SynthBrass 1", "SynthBrass 2",
+ "Trumpet",                "Trombone",               "Tuba",                  "Muted Trumpet",
+ "French Horn",            "Brass Section",          "SynthBrass 1",          "SynthBrass 2",
 
 #64: Reed
- "Soprano Sax", "Alto Sax", "Tenor Sax", "Baritone Sax",
- "Oboe", "English Horn", "Bassoon", "Clarinet",
+ "Soprano Sax",            "Alto Sax",               "Tenor Sax",             "Baritone Sax",
+ "Oboe",                   "English Horn",           "Bassoon",               "Clarinet",
 # Pipe
- "Piccolo", "Flute", "Recorder", "Pan Flute",
- "Blown Bottle", "Skakuhachi", "Whistle", "Ocarina",
+ "Piccolo",                "Flute",                  "Recorder",              "Pan Flute",
+ "Blown Bottle",           "Skakuhachi",             "Whistle",               "Ocarina",
 
 #80: Synth Lead
- "Lead 1 (square)", "Lead 2 (sawtooth)", "Lead 3 (calliope)", "Lead 4 (chiff)",
- "Lead 5 (charang)", "Lead 6 (voice)", "Lead 7 (fifths)", "Lead 8 (bass+lead)",
+ "Lead 1 (square)",        "Lead 2 (sawtooth)",      "Lead 3 (calliope)",     "Lead 4 (chiff)",
+ "Lead 5 (charang)",       "Lead 6 (voice)",         "Lead 7 (fifths)",       "Lead 8 (bass+lead)",
 # Synth Pad
- "Pad 1 (new age)", "Pad 2 (warm)", "Pad 3 (polysynth)", "Pad 4 (choir)",
- "Pad 5 (bowed)", "Pad 6 (metallic)", "Pad 7 (halo)", "Pad 8 (sweep)",
+ "Pad 1 (new age)",        "Pad 2 (warm)",           "Pad 3 (polysynth)",     "Pad 4 (choir)",
+ "Pad 5 (bowed)",          "Pad 6 (metallic)",       "Pad 7 (halo)",          "Pad 8 (sweep)",
 
 #96: Synth Effects
- "FX 1 (rain)", "FX 2 (soundtrack)", "FX 3 (crystal)", "FX 4 (atmosphere)",
- "FX 5 (brightness)", "FX 6 (goblins)", "FX 7 (echoes)", "FX 8 (sci-fi)",
+ "FX 1 (rain)",            "FX 2 (soundtrack)",      "FX 3 (crystal)",        "FX 4 (atmosphere)",
+ "FX 5 (brightness)",      "FX 6 (goblins)",         "FX 7 (echoes)",         "FX 8 (sci-fi)",
 # Ethnic
- "Sitar", "Banjo", "Shamisen", "Koto",
- "Kalimba", "Bagpipe", "Fiddle", "Shanai",
+ "Sitar",                  "Banjo",                  "Shamisen",              "Koto",
+ "Kalimba",                "Bagpipe",                "Fiddle",                "Shanai",
 
 #112: Percussive
- "Tinkle Bell", "Agogo", "Steel Drums", "Woodblock",
- "Taiko Drum", "Melodic Tom", "Synth Drum", "Reverse Cymbal",
+ "Tinkle Bell",            "Agogo",                  "Steel Drums",           "Woodblock",
+ "Taiko Drum",             "Melodic Tom",            "Synth Drum",            "Reverse Cymbal",
 # Sound Effects
- "Guitar Fret Noise", "Breath Noise", "Seashore", "Bird Tweet",
- "Telephone Ring", "Helicopter", "Applause", "Gunshot",
+ "Guitar Fret Noise",      "Breath Noise",           "Seashore",              "Bird Tweet",
+ "Telephone Ring",         "Helicopter",             "Applause",              "Gunshot",
 );
 
 my %patch2number = %number2patch.reverse;
@@ -256,32 +261,29 @@ to English names (e.g., 56 to 'Cowbell') -- but note that only numbers
 35 to 81 (inclusive) are defined; C<%MIDI::percussion2notenum> is the
 reverse.  Have a look at the source to see the contents of the hash.
 
-=cut
 =end pod
 
 my %notenum2percussion = 35 .. 81 => (
- 'Acoustic Bass Drum', 'Bass Drum 1', 'Side Stick', 'Acoustic Snare',
- 'Hand Clap',
+ 'Acoustic Bass Drum', 'Bass Drum 1',   'Side Stick',     'Acoustic Snare', 'Hand Clap',
 
  # the forties 
- 'Electric Snare', 'Low Floor Tom', 'Closed Hi-Hat', 'High Floor Tom',
- 'Pedal Hi-Hat', 'Low Tom', 'Open Hi-Hat', 'Low-Mid Tom', 'Hi-Mid Tom',
- 'Crash Cymbal 1',
+ 'Electric Snare',     'Low Floor Tom', 'Closed Hi-Hat',  'High Floor Tom', 'Pedal Hi-Hat',
+ 'Low Tom',            'Open Hi-Hat',   'Low-Mid Tom',    'Hi-Mid Tom',     'Crash Cymbal 1',
 
  # the fifties
- 'High Tom', 'Ride Cymbal 1', 'Chinese Cymbal', 'Ride Bell', 'Tambourine',
- 'Splash Cymbal', 'Cowbell', 'Crash Cymbal 2', 'Vibraslap', 'Ride Cymbal 2',
+ 'High Tom',           'Ride Cymbal 1', 'Chinese Cymbal', 'Ride Bell',      'Tambourine',
+ 'Splash Cymbal',      'Cowbell',       'Crash Cymbal 2', 'Vibraslap',      'Ride Cymbal 2',
 
  # the sixties
- 'Hi Bongo', 'Low Bongo', 'Mute Hi Conga', 'Open Hi Conga', 'Low Conga',
- 'High Timbale', 'Low Timbale', 'High Agogo', 'Low Agogo', 'Cabasa',
+ 'Hi Bongo',           'Low Bongo',     'Mute Hi Conga',  'Open Hi Conga',  'Low Conga',
+ 'High Timbale',       'Low Timbale',   'High Agogo',     'Low Agogo',      'Cabasa',
 
  # the seventies
- 'Maracas', 'Short Whistle', 'Long Whistle', 'Short Guiro', 'Long Guiro',
- 'Claves', 'Hi Wood Block', 'Low Wood Block', 'Mute Cuica', 'Open Cuica',
+ 'Maracas',            'Short Whistle', 'Long Whistle',   'Short Guiro',    'Long Guiro',
+ 'Claves',             'Hi Wood Block', 'Low Wood Block', 'Mute Cuica',      'Open Cuica',
 
  # the eighties
- 'Mute Triangle', 'Open Triangle',
+ 'Mute Triangle',      'Open Triangle',
 );
 
 my %percussion2notenum = %notenum2percussion.reverse;
@@ -391,11 +393,10 @@ modify it under the same terms as Perl itself.
 Sean M. Burke C<sburke@cpan.org> (until 2010)
 
 Darrell Conklin C<conklin@cpan.org> (from 2010)
-=cut
 =end pod
 
 ###########################################################################
-sub dump_quote(*@stuff) {
+sub dump-quote(*@stuff) {
   # Used variously by some MIDI::* modules.  Might as well keep it here.
 
   return
