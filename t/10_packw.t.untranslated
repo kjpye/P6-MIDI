@@ -3,14 +3,18 @@
 
 use strict;
 use Test;
-BEGIN { plan tests => 13 }
 
+use v6;
+
+plan 13;
+
+use PackUnpack;
 use MIDI;
 ok 1;
 
 # Just test the BER
 
-ok pack("w", 0x00000000), "\x00";
+ok pack("w", 0x00000000), Buf.new(0x00);
 ok pack("w", 0x00000040), "\x40";
 ok pack("w", 0x0000007F), "\x7F";
 ok pack("w", 0x00000080), "\x81\x00";

@@ -2,8 +2,14 @@ unit class MIDI::Track;
 
 use v6;
 
-my $Debug = 0;
-my$VERSION = '0.83';
+my $Debug   = 0;
+my $VERSION = '0.83';
+
+has $.type   = 'MTrk';
+has @.events = ();
+has $.data   = Buf.new;
+
+use MIDI::Event;
 
 =begin pod
 =head1 NAME
@@ -13,14 +19,14 @@ MIDI::Track -- functions and methods for MIDI tracks
 =head1 SYNOPSIS
 
  use MIDI; # ...which "use"s MIDI::Track et al
- $taco_track = MIDI::Track->new;
- $taco_track->events(
-  ['text_event', 0, "I like tacos!"],
-  ['note_on',    0, 4, 50, 96 ],
-  ['note_off', 300, 4, 50, 96 ],
+ $taco-track = MIDI::Track->new;
+ $taco-track->events(
+  ['text-event', 0, "I like tacos!"],
+  ['note-on',    0, 4, 50, 96 ],
+  ['note-off', 300, 4, 50, 96 ],
  );
  $opus = MIDI::Opus->new(
-  {  'format' => 0,  'ticks' => 240,  'tracks' => [ $taco_track ] }
+  {  'format' => 0,  'ticks' => 240,  'tracks' => [ $taco-track ] }
  );
    ...etc...
 
@@ -72,82 +78,36 @@ C<data>, which sets the data of the new track to the string provided;
 C<type>, which sets the type of the new track to the string provided;
 C<events>, which sets the events of the new track to the contents of
 the list-reference provided (i.e., a reference to a LoL -- see
-L<perllol> for the skinny on LoLs); and C<events_r>, which is an exact
+L<perllol> for the skinny on LoLs); and C<events-r>, which is an exact
 synonym of C<events>.
 
 =cut
 =end pod
 
-#sub new {
-#  # make a new track.
-#  my $class = shift;
-#  my $this = bless( {}, $class );
-#  print "New object in class $class\n" if $Debug;
-#  $this->_init( @_ );
-#  return $this;
-#}
-
-method _init {
-#NYI   # You can specify options:
-#NYI   #  'event' => [a list of events],  AKA 'event_r'
-#NYI   #  'type'  => 'Whut', # default is 'MTrk'
-#NYI   #  'data'  => 'scads of binary data as you like it'
-#NYI 
-#NYI   my $options_r = ref($_[0]) eq 'HASH' ? $_[0] : {};
-#NYI   print "_init called against $this\n" if $Debug;
-#NYI   if($Debug) {
-#NYI     if(%$options_r) {
-#NYI       print "Parameters: ", map("<$_>", %$options_r), "\n";
-#NYI     } else {
-#NYI       print "Null parameters for opus init\n";
-#NYI     }
-#NYI   }
-#NYI 
-#NYI   $this->{'type'} =
-#NYI     defined($options_r->{'type'}) ? $options_r->{'type'} : 'MTrk';
-#NYI   $this->{'data'} = $options_r->{'data'}
-#NYI     if defined($options_r->{'data'});
-#NYI 
-#NYI   $options_r->{'events'} = $options_r->{'events_r'}
-#NYI     if( exists( $options_r->{'events_r'} ) and not
-#NYI 	exists( $options_r->{'events'} )
-#NYI       );
-#NYI   # so events_r => [ @events ] is a synonym for 
-#NYI   #    events   => [ @events ]
-#NYI   # as on option for new()
-#NYI 
-#NYI   $this->{'events'} =
-#NYI     ( defined($options_r->{'events'})
-#NYI       and ref($options_r->{'events'}) eq 'ARRAY' )
-#NYI     ? $options_r->{'events'} : []
-#NYI   ;
-#NYI   return;
-}
-
 =begin pod
-=item the method $new_track = $track->copy
+=item the method $new-track = $track->copy
 
 This duplicates the contents of the given track, and returns
 the duplicate.  If you are unclear on why you may need this function,
 consider:
 
-          $funk  = MIDI::Opus->new({'from_file' => 'funk1.mid'});
-          $samba = MIDI::Opus->new({'from_file' => 'samba1.mid'});
+          $funk  = MIDI::Opus->new({'from-file' => 'funk1.mid'});
+          $samba = MIDI::Opus->new({'from-file' => 'samba1.mid'});
           
-          $bass_track = ( $funk->tracks )[-1]; # last track
-          push(@{ $samba->tracks_r }, $bass_track );
+          $bass-track = ( $funk->tracks )[-1]; # last track
+          push(@{ $samba->tracks-r }, $bass-track );
                # make it the last track
           
-          &funk_it_up(  ( $funk->tracks )[-1]  );
+          &funk-it-up(  ( $funk->tracks )[-1]  );
                # modifies the last track of $funk
-          &turn_it_out(  ( $samba->tracks )[-1]  );
+          &turn-it-out(  ( $samba->tracks )[-1]  );
                # modifies the last track of $samba
           
-          $funk->write_to_file('funk2.mid');
-          $samba->write_to_file('samba2.mid');
+          $funk->write-to-file('funk2.mid');
+          $samba->write-to-file('samba2.mid');
           exit;
 
-So you have your routines funk_it_up and turn_it_out, and they each
+So you have your routines funk-it-up and turn-it-out, and they each
 modify the track they're applied to in some way.  But the problem is that
 the above code probably does not do what you want -- because the last
 track-object of $funk and the last track-object of $samba are the
@@ -156,7 +116,7 @@ different opuses at the same time -- which is fine, except in cases like
 the above code.  That's where you need to do copy the object.  Change
 the above code to read:
 
-          push(@{ $samba->tracks_r }, $bass_track->copy );
+          push(@{ $samba->tracks-r }, $bass-track->copy );
 
 and what you want to happen, will.
 
@@ -167,20 +127,20 @@ $opus->copy, for copying entire opuses.
 
 (If you happen to need to copy a single event, it's just $new = [@$old] ;
 and if you happen to need to copy an event structure (LoL) outside of a
-track for some reason, use MIDI::Event::copy_structure.)
+track for some reason, use MIDI::Event::copy-structure.)
 
 =cut
 =end pod
 
-has @.events;
-
 method copy {
   # Duplicate a given track.  Even dupes the events.
-  # Call as $new_one = $track->copy
+  # Call as $new-one = $track.copy
 
   my $new = self.new;
   # a first crude dupe
-  $new.events = MIDI::Event::copy_structure( @!events );
+  $new.type: $!type;
+  $new.events = MIDI::Event::copy-structure( @!events );
+  $new.data: $!data;
   return $new;
 }
 
@@ -196,10 +156,10 @@ documentation on skyline
 
 method skyline(*%options) {
 
-    my $score_r = MIDI::Score::events_r_to_score_r(@!events);
-    my $new_score_r = MIDI::Score::skyline($score_r,%options);
-    my $events_r = MIDI::Score::score_r_to_events_r($new_score_r);
-    self.events_r($events_r);
+    my $score = MIDI::Score::events-to-score(@!events);
+    my $new-score = MIDI::Score::skyline($score, |%options);
+    my $events = MIDI::Score::score-to-events($new-score);
+    self.events: $events;
 }
 
 ###########################################################################
@@ -211,7 +171,7 @@ method skyline(*%options) {
 Returns the list of events in the track, possibly after having set it
 to @events, if specified and not empty.  (If you happen to want to set
 the list of events to an empty list, for whatever reason, you have to use
-"$track->events_r([])".)
+"$track->events-r([])".)
 
 In other words: $track->events(@events) is how to set the list of events
 (assuming @events is not empty), and @events = $track->events is how to
@@ -221,40 +181,29 @@ read the list of events.
 =end pod
 
 =begin pod
-=item the method $track->events_r( $event_r )
+=item the method $track->events-r( $event-r )
 
 Returns a reference to the list of events in the track, possibly after
-having set it to $events_r, if specified.  Actually, "$events_r" can be
+having set it to $events-r, if specified.  Actually, "$events-r" can be
 any listref to a LoL, whether it comes from a scalar as in
-C<$some_events_r>, or from something like C<[@events]>, or just plain
+C<$some-events-r>, or from something like C<[@events]>, or just plain
 old C<\@events>
 
 Originally $track->events was the only way to deal with events, but I
-added $track->events_r to make possible 1) setting the list of events
+added $track->events-r to make possible 1) setting the list of events
 to (), for whatever that's worth, and 2) so you can directly
 manipulate the track's events, without having to I<copy> the list of
 events (which might be tens of thousands of elements long) back
 and forth.  This way, you can say:
 
-          $events_r = $track->events_r();
-          @some_stuff = splice(@$events_r, 4, 6);
+          $events-r = $track->events-r();
+          @some-stuff = splice(@$events-r, 4, 6);
 
 But if you don't know how to deal with listrefs outside of LoLs,
 that's OK, just use $track->events.
 
 =cut
 =end pod
-
-#NYI sub events_r {
-#NYI   # return (maybe set) a list-reference to the event-structure for this track
-#NYI   my $this = shift;
-#NYI   if(@_) {
-#NYI     croak "parameter for MIDI::Track::events_r must be an array-ref"
-#NYI       unless ref($_[0]);
-#NYI     $this->{'events'} = $_[0];
-#NYI   }
-#NYI   return $this->{'events'};
-#NYI }
 
 =begin pod
 =item the method $track->type( 'MFoo' )
@@ -264,7 +213,7 @@ You probably won't ever need to use this method, other than in
 a context like:
 
           if( $track->type eq 'MTrk' ) { # The usual case
-            give_up_the_funk($track);
+            give-up-the-funk($track);
           } # Else just keep on walkin'!
 
 Track types must be 4 bytes long; see L<MIDI::Filespec> for details.
@@ -272,49 +221,45 @@ Track types must be 4 bytes long; see L<MIDI::Filespec> for details.
 =cut
 =end pod
 
-has $.type;
-
 =begin pod
-=item the method $track->data( $kooky_binary_data )
+=item the method $track->data( $kooky-binary-data )
 
 Returns the data from $track, after having set it to
-$kooky_binary_data, if provided -- even if it's zero-length!  You
+$kooky-binary-data, if provided -- even if it's zero-length!  You
 probably won't ever need to use this method.  For your information,
 $track->data(undef) is how to undefine the data for a track.
 
 =cut
 =end pod
 
-has $.data;
-
 ###########################################################################
 
 =begin pod
-=item the method $track->new_event('event', ...parameters... )
+=item the method $track->new-event('event', ...parameters... )
 
 This adds the event ('event', ...parameters...) to the end of the
 event list for $track.  It's just sugar for:
 
-          push( @{$this_track->events_r}, [ 'event', ...params... ] )
+          push( @{$this-track->events-r}, [ 'event', ...params... ] )
 
 If you want anything other than the equivalent of that, like some
-kinda splice(), then do it yourself with $track->events_r or
+kinda splice(), then do it yourself with $track->events-r or
 $track->events.
 
 =cut
 =end pod
 
-method new_event(*@args) {
+method new-event(*@args) {
   # Usage:
-  #  $this_track->new_event('text_event', 0, 'Lesbia cum Prono');
+  #  $this-track.new-event('text-event', 0, 'Lesbia cum Prono');
 
-  @!events.append: @args;
+  @!events.push: MIDI::Event.new( type => @args[0], delta-time => @args[1], args => @args[2-*] );
 }
 
 ###########################################################################
 
 =begin pod
-=item the method $track->dump({ ...options... })
+=item the method $track.dump( ...options... )
 
 This dumps the track's contents for your inspection.  The dump format
 is code that looks like Perl code that you'd use to recreate that track.
@@ -330,25 +275,78 @@ Read the source if you really need to know how this works.
 
 method dump(*%options) { # dump a track's contents
 
-  my $type = $!type;
-
   my $indent = '    ';
-  my @events = @!events;
   print(
 	$indent, 'MIDI::Track->new({', "\n",
-	$indent, "  'type' => ", MIDI::_dump_quote($type), ",\n",
+	$indent, "  type => ", MIDI::dump-quote($!type), ",\n",
 	$!data.defined ??
-	  ( $indent, "  'data' => ",
-	    MIDI::_dump_quote($!data), ",\n" )
+	  ( $indent, "  data => ",
+	    MIDI::dump-quote($!data), ",\n" )
 	  !! (),
-	$indent, "  'events' => [  # ", +@!events, " events.\n",
+	$indent, "  events => [  # ", +@!events, " events.\n",
        );
-  for @events -> $event {
-    $event.dump;
-    # was: print( $indent, "    [", &MIDI::_dump_quote(@$event), "],\n" );
+  for @!events -> $event {
+    print $indent, $event.dump;
+    # was: print( $indent, "    [", &MIDI::-dump-quote(@$event), "],\n" );
   }
   print( "$indent  ]\n$indent}),\n$indent\n" );
   return;
+}
+
+method encode-events(*%options) { # encode an array of events, presumably for writing to a file
+  # Calling format:
+  #   $data = MIDI::Event::encode( @events, options );
+  # Returns an array of track data.
+
+  # If you want to use this to encode a /single/ event,
+  # you still have to do it as a reference to an event structure (a LoL)
+  # that just happens to have just one event.  I.e.,
+  #   encode( [ $event ] ) or encode( [ [ 'note-on', 100, 5, 42, 64] ] )
+  # If you're doing this, consider the never-add-eot track option, as in
+  #   print MIDI ${ encode( [ $event], { 'never-add-eot' => 1} ) };
+
+  my $last-status = -1;
+ 
+  my @events = @!events.clone;
+
+  my $data = ''; # what I'll join @data all together into
+
+  my $unknown-callback = Nil;
+  $unknown-callback = %options<unknown-callback>;
+
+  unless %options<never-add-eot> {
+    # One way or another, tack on an 'end-track'
+    if +@events { # If there are any events...
+      my $last = @events[ *-1 ];
+      unless $last.type eq 'end-track' { # ...And there's no end-track already
+        if $last.type eq 'text-event' and $last.args[2] == 0 {
+	  # 0-length text event at track-end.
+	  if %options<no-eot-magic> {
+	    # Exceptional case: don't mess with track-final
+	    # 0-length text-events; just peg on an end-track
+	    @events.push: MIDI::Event.new(type => 'end-track');
+	  } else {
+	    # NORMAL CASE: replace it with an end-track, leaving the DTime
+	    $last.type('end-track');
+	  }
+        } else {
+          # last event was neither a 0-length text-event nor an end-track
+	  @events.push: MIDI::Event.new(type => 'end-track');
+        }
+      }
+    } else { # an eventless track!
+      @events = [ MIDI::Event.new(type => 'end-track') ];
+    }
+  }
+
+#print "--\n";
+#foreach(@events){ MIDI::Event::dump($_) }
+#print "--\n";
+
+#  my $maybe-running-status = not %options<no-running-status>;
+#  $last-status = -1;
+
+  [~] @events.map: { .encode-event($last-status) };
 }
 
 ###########################################################################
@@ -357,14 +355,14 @@ method dump(*%options) { # dump a track's contents
 #
 method encode(*%options) { # encode a track object into track data (not a chunk)
   # Calling format:
-  #  $data_r = $track->encode( { .. options .. } )
+  #  $data = $track->encode( .. options .. )
   # The (optional) argument is an anonymous hash of options.
   # Returns a REFERENCE to track data.
   #
 
   my $data = '';
 
-  if $!data.defined {
+  if $!data.defined and $!data {
     # It might be 0-length, by the way.  Might this be problematic?
     $data = $!data;
     # warn "Encoding 0-length track data!" unless length $data;
@@ -373,9 +371,8 @@ method encode(*%options) { # encode a track object into track data (not a chunk)
         and @!events.defined
              # not just exists -- but DEFINED!
     {
-      print "Encoding ", @!events, "\n" if $Debug;
-      return
-        @!events.encode(%options);
+      note "Encoding ", @!events if $Debug;
+      $data = self.encode-events(|%options);
     } else {
       $data = ''; # what else to do?
       warn "Spork 8851\n" if $Debug;
@@ -390,15 +387,14 @@ method encode(*%options) { # encode a track object into track data (not a chunk)
 sub decode($type, $data, *%options) { # returns a new object, but doesn't accept constructor syntax
   # decode track data (not a chunk) into a new track object
   # Calling format:
-  #  $new_track = 
-  #   MIDI::Track::decode($type, \$track_data, { .. options .. })
-  # Returns a new track_object.
+  #  $new-track = 
+  #   MIDI::Track::decode($type, \$track-data, { .. options .. })
+  # Returns a new track-object.
   # The anonymous hash of options is, well, optional
 
-  my $track = MIDI::Track.new();
+  my $track = MIDI::Track.new( track => $type );
 
-  $track.type($type);
-  if $type eq 'MTrk' and not %options<no_parse> {
+  if $type eq 'MTrk' and not %options<no-parse> {
     $track.events(MIDI::Event::decode($data, %options));
         # And that's where all the work happens
   } else {
