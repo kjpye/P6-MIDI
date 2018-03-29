@@ -1,11 +1,43 @@
 use v6;
 
-unit module MIDI::Event;
-
 use PackUnpack;
 
 my $Debug = 1;
 my $VERSION = '0.84';
+
+class MIDI::Event {...}
+
+class MIDI::Event::Note-off is MIDI::Event {
+  has $.channel;
+  has $.note-number;
+  has $.velocity;
+}
+
+class MIDI::Event::Note-on is MIDI::Event {
+  has $.channel;
+  has $.note-number;
+  has $.velocity;
+}
+
+class MIDI::Event::Key-after-touch is MIDI::Event {
+  has $.channel;
+  has $.note-number;
+  has $.aftertouch;
+}
+
+class MIDI::Event::Controller-change is MIDI::Event {
+  has $.channel;
+  has $.number;
+  has $.value;
+}
+
+class MIDI::Event {
+
+# The contents of an event:
+has $.type; # a string
+has $!delta-time = 0;
+#has @.args; # event type specific
+
 
 #First 100 or so lines of this module are straightforward.  The actual
 # encoding logic below that is scary, tho.
@@ -120,11 +152,6 @@ sub getcompint($data, $pointer is rw) {
     $value +<= 7;
     $value +|= $byte +& 0x7f;
 }
-
-# The contents of an event:
-has $.type; # a string
-has $!delta-time = 0;
-has @.args; # event type specific
 
 ###########################################################################
 # Some public-access lists:
@@ -599,14 +626,12 @@ Event:  # Analyze the event stream.
       if $command      == 0x80 {
 	next if %exclude<note_off>;
         # for sake of efficiency
-        $E = MIDI::Event.new( type       => 'note_off',
-			      delta-time => $time,
-			      args       => [
-					     $channel,
-					     $parameter[0],
-					     $parameter[1],
-					    ]
-			    );
+        $E = MIDI::Event::Note-off.new(
+			               time          => $time,
+                                       channel       => $channel,
+                                       note-number   => $parameter[0],
+                                       velocity      => @parameter[1],
+                              );
 
 =begin pod
 =item ('note_on', I<dtime>, I<channel>, I<note>, I<velocity>)
@@ -615,14 +640,12 @@ Event:  # Analyze the event stream.
 =end pod
       } elsif $command == 0x90 {
 	next if %exclude<note_on>;
-        $E = MIDI::Event.new( type       => 'note_on',
-			      delta-time => $time,
-			      args => [
-				       $channel,
-				       $parameter[0],
-				       $parameter[1]
-				      ]
-			    );
+        $E = MIDI::Event::Note-on.new(
+			              time          => $time,
+                                      channel       => $channel,
+                                      note-number   => $parameter[0],
+                                      velocity      => @parameter[1],
+                             );
 
 =begin pod
 =item ('key_after_touch', I<dtime>, I<channel>, I<note>, I<velocity>)
@@ -631,13 +654,12 @@ Event:  # Analyze the event stream.
 =end pod
       } elsif $command == 0xA0 {
 	next if %exclude<key_after_touch>;
-        $E = MIDI::Event.new( type       => 'key_after_touch',
-                              delta-time => $time,
-                              args       => [$channel,
-                                             $parameter[0],
-                                             $parameter[1],
-                                            ]
-                            );
+        $E = MIDI::Event::Key-after-touch.new(
+                                              time        => $time,
+                                              channel     => $channel,
+                                              note-number => $parameter[0],
+                                              aftertouch  => $parameter[1],
+                                             );
 
 =begin pod
 =item ('control_change', I<dtime>, I<channel>, I<controller(0-127)>, I<value(0-127)>)
@@ -646,13 +668,12 @@ Event:  # Analyze the event stream.
 =end pod
       } elsif $command == 0xB0 {
 	next if %exclude<control_change>;
-        $E = MIDI::Event.new( type       => 'control_change',
-                              delta-time => $time,
-                              args       => [$channel,
-                                             $parameter[0],
-                                             $parameter[1],
-                                            ]
-                            );
+        $E = MIDI::Event::Control-change.new(
+                                             time       => $time,
+                                             channel    => $channel,
+                                             controller => $parameter[0],
+                                             value      => $parameter[1],
+                                            );
 
 =begin pod
 =item ('patch_change', I<dtime>, I<channel>, I<patch>)
@@ -2053,4 +2074,7 @@ sub encode(*@events, *%options) { # encode an event structure, presumably for wr
     return Buf.new: @data;
   } # method encode-event
 
+}
+
 } # class Event
+
