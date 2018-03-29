@@ -231,8 +231,8 @@ I<reference> to a copy of it. Example usage:
 
 has @!notes;
 
-sub copy_structure {
-  return &MIDI::Event::copy_structure(@_);
+sub copy-structure {
+  return &MIDI::Event::copy-structure(@_);
   # hey, a LoL is an LoL
 }
 ##########################################################################
@@ -251,9 +251,9 @@ item).
 =cut
 =end pod
 
-method score_r_to_events_r {
-  # list context: Returns the events_r AND the total tick time
-  # scalar context: Returns events_r
+method to-events {
+  # list context: Returns the events AND the total tick time
+  # scalar context: Returns events
 
   my $time = 0;
   my @events = ();
@@ -261,36 +261,42 @@ method score_r_to_events_r {
   # First, turn instances of 'note' into 'note_on' and 'note_off':
   for @!notes -> $note {
     if $note.type eq 'note' {
-      my @note_on = @$note_r;
-#print "In:  ", map("<$_>", @note_on), "\n";
-      $note_on[0] = 'note_on';
-      my $duration = splice(@note_on, 2, 1);
-
-      my @note_off = @note_on; # /now/ copy it
-      $note_off[0] = 'note_off';
-      $note_off[1] += $duration;
-      $note_off[4] = 0; # set volume to 0
-      push(@events, \@note_on, \@note_off);
-#print "on:  ", map("<$_>", @note_on), "\n";
-#print "off: ", map("<$_>", @note_off), "\n";
+      my $note-on  = MIDI::Event.new( type       => 'note_on',
+				      delta-time => $note.delta-time,
+				      args       => [
+						     $note.args[1],
+						     $note.args[2],
+						     $note.args[3],
+						    ]
+				    );
+      my $note-off = MIDI::Event.new( type       => 'note_off',
+				      delta-time => $note.delta-time + $note.args[0],
+				      args       => [
+						     $note.args[1],
+						     $note.args[2],
+						     0,
+						    ]
+				    );
+      @events.push: $note-on, $note-off;
+      #dd $note-on;
+      #dd $note-off;
     } else {
-      push(@events, [@$note_r]);
+      @events.push: $note;
     }
   }
   # warn scalar(@events), " events in $score_r";
-  $score_r = sort_score_r(\@events);
+  $score = @events.sort({$a.deltatime <=> $b.delta-time});
   # warn scalar(@$score_r), " events in $score_r";
 
   # Now we turn it into an event structure by fiddling the timing
   $time = 0;
-  foreach my $event (@$score_r) {
-    next unless ref($event) && @$event;
-    my $delta =  $event->[1] - $time; # Figure out the delta
-    $time = $event->[1]; # Move it forward
-    $event->[1] = $delta; # Swap it in
+  for $score -> $event {
+    next unless $event;
+    my $delta = $event.delta-time - $time; # Figure out the delta
+    $time = $event.delta-time; # Move it forward
+    $event.delta-time = $delta; # Swap it in
   }
-  return($score_r, $time) if wantarray;
-  return $score_r;
+  return ($score, $time);
 }
 ###########################################################################
 
@@ -303,32 +309,15 @@ I<reference> to a sorted (by time) copy of it. Example usage:
 
 =cut
 
-sub sort_score_r {
+sub sort-score($score) {
   # take a reference to a score LoL, and sort it by note start time,
   # and return a reference to that sorted LoL.  Notes from the same
   # time must be left in the order they're found!!!!  That's why we can't
   # just use sort { $a->[1] <=> $b->[1] } (@$score_r)
-  my $score_r = $_[0];
-  my %timing = ();
-  foreach my $note_r (@$score_r) {
-    push(
-	 @{$timing{
-		   $note_r->[1]
-		  }},
-	 $note_r
-	) if ref($note_r);
-  }
-# warn scalar(@$score_r), " events in $score_r";
-#print "sequencing for times: ", map("<$_> ",
-#				    sort {$a <=> $b} keys(%timing)
-#				   ), "\n";
 
-  return
-    [
-     map(@{ $timing{$_} },
-	 sort {$a <=> $b} keys(%timing)
-	)
-    ];
+  # Except in Perl6, where sort is stable!
+
+  $score.sort({$a.delta-time <=> $b.delta-time});
 }
 ###########################################################################
 
@@ -343,65 +332,68 @@ structure takes to play (i.e., the end-time of the temporally last
 item).
 
 =cut
+=end pod
 
 method events-to-score(*%options) {
-  # Returns the score_r AND the total tick time
+  # Returns the score AND the total tick time
 
   my $time = 0;
-  if %options_r<no_note_abstraction> {
-    my $score = MIDI::Event::copy_structure($events_r);
+  if %options<no_note_abstraction> {
+    my $score = MIDI::Event::copy_structure(@!events);
+    my $new-time;
     for $score -> $event {
       # print join(' ', $event), "\n";
-      $event.delta-time += $time;
+      $new-time = $time + $event.delta-time;
+      $event.delta-time  $time;
+      $time = $new-time;
     }
-    #return($score_r, $time) if wantarray; # TODO
-    return $score;
+    return $score, $time;
   } else {
     my %note = ();
     my @score =
-      map
+      @events.map
       {
 	if(!ref($_)) {
 	  ();
 	} else {
 # 0.82: the following must be declared local
-	  local $_ = [@$_]; # copy.
+	  temp $_; # copy.
 	  $_->[1] = ($time += $_->[1]) if ref($_);
-	  
-	  if($_->[0] eq 'note_off'
-	     or($_->[0] eq 'note_on' &&
-		$_->[4] == 0) )
-	  { # End of a note
+
+	  if $!type eq 'note_off'
+	     or ($!type eq 'note_on' &&
+		 @!args[2] == 0) { # End of a note
 	    # print "Note off : @$_\n";
 # 0.82: handle multiple prior events with same chan/note.
-	      if ((exists $note{pack 'CC', @{$_}[2,3]}) && (@{$note{pack 'CC', @{$_}[2,3]}})) {
+	       if (
+		   exists $note{pack 'CC', @{$_}[2,3]}
+		   && @{$note{pack 'CC', @{$_}[2,3]}}
+		  ) {
 		  shift(@{$note{pack 'CC', @{$_}[2,3]}})->[2] += $time;
 		  unless(@{$note{pack 'CC', @{$_}[2,3]}}) {delete $note{pack 'CC', @{$_}[2,3]};}
 	      }
 	    (); # Erase this event.
-	  } elsif ($_->[0] eq 'note_on') {
+	  } elsif $!type eq 'note_on' {
 	    # Start of a note
 	    $_ = [@$_];
-	    
+
 	    push(@{$note{ pack 'CC', @{$_}[2,3] }},$_);
 	    splice(@$_, 2, 0, -$time);
-	    $_->[0] = 'note';
+	    $!type = 'note';
 	    # ('note', Starttime, Duration, Channel, Note, Veloc)
-	    $_;
+	    self;
 	  } else {
 	    $_;
 	  }
 	}
-      }
-      @$events_r
-    ;
+      };
 
     #print "notes remaining on stack: ", scalar(values %note), "\n"
     #  if values %note;
 # 0.82: clean up pending events gracefully
     foreach my $k (keys %note) {
 	foreach my $one (@{$note{$k}}) {
-	    $one->[2] += $time;
+	    $one.args[0] += $time;
 	}
     }
     return(\@score, $time) if wantarray;

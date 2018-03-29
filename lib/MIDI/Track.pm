@@ -2,6 +2,7 @@ unit class MIDI::Track;
 
 use v6;
 
+<<<<<<< HEAD
 my $Debug   = 0;
 my $VERSION = '0.83';
 
@@ -10,6 +11,14 @@ has @.events = ();
 has $.data   = Buf.new;
 
 use MIDI::Event;
+=======
+my $Debug = 1;
+my $VERSION = '0.83';
+
+has @.events;
+has $.type;
+has $.data;
+>>>>>>> origin/master
 
 =begin pod
 =head1 NAME
@@ -278,16 +287,28 @@ method dump(*%options) { # dump a track's contents
   my $indent = '    ';
   print(
 	$indent, 'MIDI::Track->new({', "\n",
+<<<<<<< HEAD
 	$indent, "  type => ", MIDI::dump-quote($!type), ",\n",
 	$!data.defined ??
 	  ( $indent, "  data => ",
+=======
+	$indent, "  'type' => ", MIDI::dump-quote($type), ",\n",
+	$!data.defined ??
+	  ( $indent, "  'data' => ",
+>>>>>>> origin/master
 	    MIDI::dump-quote($!data), ",\n" )
 	  !! (),
 	$indent, "  events => [  # ", +@!events, " events.\n",
        );
+<<<<<<< HEAD
   for @!events -> $event {
     print $indent, $event.dump;
     # was: print( $indent, "    [", &MIDI::-dump-quote(@$event), "],\n" );
+=======
+  for @events -> $event {
+    $event.dump;
+    # was: print( $indent, "    [", &MIDI::dump-quote(@$event), "],\n" );
+>>>>>>> origin/master
   }
   print( "$indent  ]\n$indent}),\n$indent\n" );
   return;
@@ -355,7 +376,11 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
 #
 method encode(*%options) { # encode a track object into track data (not a chunk)
   # Calling format:
+<<<<<<< HEAD
   #  $data = $track->encode( .. options .. )
+=======
+  #  $data = $track.encode( { .. options .. } )
+>>>>>>> origin/master
   # The (optional) argument is an anonymous hash of options.
   # Returns a REFERENCE to track data.
   #
