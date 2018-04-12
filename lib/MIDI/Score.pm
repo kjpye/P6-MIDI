@@ -1,4 +1,4 @@
-unit class MIDI::Score
+unit class MIDI::Score;
 
 use v6;
 
@@ -237,7 +237,7 @@ sub copy-structure {
 }
 ##########################################################################
 
-=begin POD
+=begin pod
 =item $events_r = MIDI::Score::score_r_to_events_r( $score_r )
 
 =item ($events_r, $ticks) = MIDI::Score::score_r_to_events_r( $score_r )
@@ -260,23 +260,19 @@ method to-events {
 
   # First, turn instances of 'note' into 'note_on' and 'note_off':
   for @!notes -> $note {
-    if $note.type eq 'note' {
-      my $note-on  = MIDI::Event.new( type       => 'note_on',
-				      delta-time => $note.delta-time,
-				      args       => [
-						     $note.args[1],
-						     $note.args[2],
-						     $note.args[3],
-						    ]
-				    );
-      my $note-off = MIDI::Event.new( type       => 'note_off',
-				      delta-time => $note.delta-time + $note.args[0],
-				      args       => [
-						     $note.args[1],
-						     $note.args[2],
-						     0,
-						    ]
-				    );
+    if $note ~~ (MIDI::Event::Note) {
+	my $note-on  = MIDI::Event::Note-on.new(
+	    time     => $note.time,
+	    channel  => $note.channel,
+	    note     => $note.note,
+	    velocity => $note.velocity
+	);
+	my $note-off = MIDI::Event::Note-off.new(
+	    time     => $note.time,
+	    channel  => $note.channel,
+	    note     => $note.note,
+	    velocity => 0
+	);
       @events.push: $note-on, $note-off;
       #dd $note-on;
       #dd $note-off;
@@ -285,21 +281,22 @@ method to-events {
     }
   }
   # warn scalar(@events), " events in $score_r";
-  $score = @events.sort({$a.deltatime <=> $b.delta-time});
+  my $score = @events.sort({$^a.time <=> $^b.time});
   # warn scalar(@$score_r), " events in $score_r";
 
   # Now we turn it into an event structure by fiddling the timing
   $time = 0;
   for $score -> $event {
     next unless $event;
-    my $delta = $event.delta-time - $time; # Figure out the delta
-    $time = $event.delta-time; # Move it forward
-    $event.delta-time = $delta; # Swap it in
+    my $delta = $event.time - $time; # Figure out the delta
+    $time = $event.time; # Move it forward
+    $event.time = $delta; # Swap it in
   }
   return ($score, $time);
 }
 ###########################################################################
 
+=begin pod
 =item $score2_r = MIDI::Score::sort_score_r( $score_r)
 
 This takes a I<reference> to a score structure, and returns a
@@ -307,7 +304,7 @@ I<reference> to a sorted (by time) copy of it. Example usage:
 
           @sorted_score = @{ MIDI::Score::sort_score_r( \@old_score ) };
 
-=cut
+=end pod
 
 sub sort-score($score) {
   # take a reference to a score LoL, and sort it by note start time,
@@ -317,10 +314,11 @@ sub sort-score($score) {
 
   # Except in Perl6, where sort is stable!
 
-  $score.sort({$a.delta-time <=> $b.delta-time});
+  $score.sort({$^a.time <=> $^b.time});
 }
 ###########################################################################
 
+=begin pod
 =item $score_r = MIDI::Score::events_r_to_score_r( $events_r )
 
 =item ($score_r, $ticks) = MIDI::Score::events_r_to_score_r( $events_r )
@@ -331,7 +329,6 @@ list context, also returns a count of the number of ticks that
 structure takes to play (i.e., the end-time of the temporally last
 item).
 
-=cut
 =end pod
 
 method events-to-score(*%options) {
@@ -343,41 +340,41 @@ method events-to-score(*%options) {
     my $new-time;
     for $score -> $event {
       # print join(' ', $event), "\n";
-      $new-time = $time + $event.delta-time;
-      $event.delta-time  $time;
+      $new-time = $time + $event.time;
+      $event.time = $time;
       $time = $new-time;
     }
     return $score, $time;
   } else {
     my %note = ();
     my @score =
-      @events.map
+      @!notes.map:
       {
-	if(!ref($_)) {
+	if !ref($_) {
 	  ();
 	} else {
 # 0.82: the following must be declared local
 	  temp $_; # copy.
-	  $_->[1] = ($time += $_->[1]) if ref($_);
+	  $_.time = ($time += $_.time) if ref($_);
 
-	  if $!type eq 'note_off'
-	     or ($!type eq 'note_on' &&
-		 @!args[2] == 0) { # End of a note
+	  if $_ ~~ (MIDI::Event::Note_off)
+	     or ($_ ~~ (MIDI::Event::Note-on) &&
+		 $_.velocity == 0) { # End of a note
 	    # print "Note off : @$_\n";
 # 0.82: handle multiple prior events with same chan/note.
 	       if (
-		   exists $note{pack 'CC', @{$_}[2,3]}
-		   && @{$note{pack 'CC', @{$_}[2,3]}}
+		   %note{pack 'CC', $_.channel, $_.note}.exists
+		   && @(%note{pack 'CC', $_.channel, $_.note})
 		  ) {
-		  shift(@{$note{pack 'CC', @{$_}[2,3]}})->[2] += $time;
-		  unless(@{$note{pack 'CC', @{$_}[2,3]}}) {delete $note{pack 'CC', @{$_}[2,3]};}
+		  shift(@(%note{pack 'CC', $_.channel, $_.note})).note += $time;
+		  unless @(%note{pack 'CC', $_.channel, $_.note}) {%note{pack 'CC', $_.channel, $_.note}:delete;}
 	      }
 	    (); # Erase this event.
 	  } elsif $!type eq 'note_on' {
 	    # Start of a note
 	    $_ = [@$_];
 
-	    push(@{$note{ pack 'CC', @{$_}[2,3] }},$_);
+	    push(@(%note{ pack 'CC', $_.channel, $_.note}),$_);
 	    splice(@$_, 2, 0, -$time);
 	    $!type = 'note';
 	    # ('note', Starttime, Duration, Channel, Note, Veloc)
@@ -391,9 +388,9 @@ method events-to-score(*%options) {
     #print "notes remaining on stack: ", scalar(values %note), "\n"
     #  if values %note;
 # 0.82: clean up pending events gracefully
-    foreach my $k (keys %note) {
-	foreach my $one (@{$note{$k}}) {
-	    $one.args[0] += $time;
+    for %note.keys -> $k {
+	for @(%note{$k}) -> $one {
+	    $one.time += $time;
 	}
     }
     return(\@score, $time) if wantarray;
@@ -402,23 +399,24 @@ method events-to-score(*%options) {
 }
 ###########################################################################
 
+=begin pod
 =item $ticks = MIDI::Score::score_r_time( $score_r )
 
 This takes a I<reference> to a score structure, and returns 
 a count of the number of ticks that structure takes to play
 (i.e., the end-time of the temporally last item).
 
-=cut
+=end pod
 
 sub score_r_time {
   # returns the duration of the score you pass a reference to
-  my $score_r = $_[0];
-  croak "arg 1 of MIDI::Score::score_r_time isn't a ref" unless ref $score_r;
+  my $score = $_[0];
+  croak "arg 1 of MIDI::Score::score_r_time isn't a ref" unless ref $score;
   my $track_time = 0;
-  foreach my $event_r (@$score_r) {
-    next unless @$event_r;
-    my $event_end_time = ($event_r->[0] eq 'note') ?
-      ($event_r->[1] + $event_r->[2])  :  $event_r->[1] ;
+  for @$score -> $event {
+    next unless @$event;
+    my $event_end_time = ($event ~~ (MIDI::Event::Note)) ??
+      ($event.channel + $event.note)  !!  $event.channel ;
     #print "event_end_time: $event_end_time\n";
     $track_time = $event_end_time if $event_end_time > $track_time;
   }
@@ -426,18 +424,19 @@ sub score_r_time {
 }
 ###########################################################################
 
+=begin pod
 =item MIDI::Score::dump_score( $score_r )
 
 This dumps (via C<print>) a text representation of the contents of
 the event structure you pass a reference to.
 
-=cut
+=end pod
 
 sub dump_score {
-  my $score_r = $_[0];
-  print "\@notes = (   # ", scalar(@$score_r), " notes...\n";
-  foreach my $note_r (@$score_r) {
-    print " [", &MIDI::_dump_quote(@$note_r), "],\n" if @$note_r;
+  my $score = $_[0];
+  print "\@notes = (   # ", scalar(@$score), " notes...\n";
+  for @$score -> $note {
+    print " [", &MIDI::_dump_quote(@$note), "],\n" if @$note;
   }
   print ");\n";
   return;
@@ -445,6 +444,7 @@ sub dump_score {
 
 ###########################################################################
 
+=begin pod
 =item MIDI::Score::quantize( $score_r )
 
 This takes a I<reference> to a score structure, performs a grid
@@ -457,20 +457,18 @@ When durations of note events are quantized, they can get 0 duration.
 These events are I<not dropped> from the returned score, and it is the
 responsiblity of the caller to deal with them.
 
-=cut
+=end pod
 
 # new in 0.82!
-sub quantize {
-  my $score_r = $_[0];
-  my $options_r = ref($_[1]) eq 'HASH' ? $_[1] : {};
-  my $grid = $options_r->{grid};
-  if ($grid < 1) {carp "bad grid $grid in MIDI::Score::quantize!"; $grid = 1;}
-  my $qd = $options_r->{durations}; # quantize durations?
-  my $new_score_r = [];
-  my $n_event_r;
-  foreach my $event_r (@{$score_r}) {
-      my $n_event_r = [];
-      @{$n_event_r} = @{$event_r};
+sub quantize($score, *%options) {
+  my $grid = %options<grid>;
+  if $grid < 1 {fail "bad grid $grid in MIDI::Score::quantize!"; $grid = 1;}
+  my $qd = %options<durations>; # quantize durations?
+  my $new_score = [];
+  my $n_event;
+  for @($score) -> $event {
+      my $n_event = [];
+      @($n_event) = @($event);
       $n_event_r->[1] = $grid * int(($n_event_r->[1] / $grid) + 0.5);
       if ($qd && $n_event_r->[0] eq 'note') {
 	  $n_event_r->[2] = $grid * int(($n_event_r->[2] / $grid) + 0.5);
@@ -482,6 +480,7 @@ sub quantize {
 
 ###########################################################################
 
+=begin pod
 =item MIDI::Score::skyline( $score_r )
 
 This takes a I<reference> to a score structure, performs skyline
@@ -501,7 +500,7 @@ Without duration cliping, the skyline is E, Fs, Gs...
 With duration clipping, the skyline is E, e, ds, d..., where the
 duration of E is clipped to just the * portion above
 
-=cut
+=end pod
 
 # new in 0.83! author DC
 sub skyline {
@@ -539,7 +538,7 @@ sub skyline {
 
 ###########################################################################
 
-=back
+=begin pod
 
 =head1 COPYRIGHT 
 
@@ -554,9 +553,4 @@ Sean M. Burke C<sburke@cpan.org> (until 2010)
 
 Darrell Conklin C<conklin@cpan.org> (from 2010)
 
-=cut
-
-1;
-
-__END__
-
+=end pod

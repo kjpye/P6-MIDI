@@ -39,9 +39,9 @@ my @EXPORT = <
  song_position song_select tune_request raw_data
 >;     # _test_proc
 
-local %package = ();
+my %package = ();
 
-#'[
+#`[
   hash of package-scores: accessible as $MIDI::Simple::package{"packagename"}
   but REALLY think twice about writing to it, OK?
   To get at the current package's package-score object, just call
@@ -101,8 +101,6 @@ the guts of the source code are not for the faint of heart.
 This module is somewhat incompatible with the MIDI::Simple versions
 before .700 (but that was a I<looong> time ago).
 
-
-=cut
 =end pod
 
 my %Volume = ( # I've simply made up these values from more or less nowhere.
@@ -281,9 +279,7 @@ As a procedure, this initializes the package's default object (Score,
 etc.).  As a method, this is a constructor, returning a new
 MIDI::Simple object.  Neither form takes any parameters.
 
-=cut
-
-=item n(...parameters...)  or  $obj->n(...parameters...)
+=item n(...parameters...)  or  $obj.n(...parameters...)
 
 This uses the parameters given (and/or the state variables like
 Volume, Channel, Notes, etc) to add a new note to the Score -- or
@@ -293,15 +289,14 @@ several notes to the Score, if Notes has more than one element in it
 Then it moves Time ahead as appropriate.  See the section "Parameters
 For n/r/noop", below.
 
-=cut
 =end pod
 
 sub n(*@args) { # a note
-  my($am_method, $it) = (@args[0].WHAT eq "(MIDI::Simple)")
+  my ($am_method, $it) = (@args[0].WHAT eq "(MIDI::Simple)")
     ?? (1, shift @args)
-    !! (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  MIDI::Simple::_parse_options($it, @args);
-  for @{$it->{"Notes"}} -> $note_val {
+    !! (0, (%package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
+  MIDI::Simple::parse-options($it, @args);
+  for @($it{"Notes"})${note-val} {
     # which should presumably not be a null list
     unless $note_val ~~ /^\d+$/ {
       note "note value \"$note_val\" from Notes is non-numeric!  Skipping.";
@@ -335,33 +330,32 @@ sub r { # a rest
   my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
     ? (1, shift @_)
     : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  &MIDI::Simple::_parse_options($it, @_);
+  &MIDI::Simple::parse-options($it, @_);
   ${$it->{"Time"}} += ${$it->{"Duration"}};
   return;
 }
 ###########################################################################
 
+=begin pod
 =item noop(...parameters...)  or  $obj->noop(...parameters...)
 
 This is exactly like C<n> and C<r>, except it never alters Score,
 I<and> never changes Time.  It is meant to be used for setting the
 other state variables, i.e.: Channel, Duration, Octave, Volume, Notes.
 
-=cut
+=end pod
 
 sub noop { # no operation
   my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
     ? (1, shift @_)
     : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  &MIDI::Simple::_parse_options($it, @_);
+  &MIDI::Simple::parse-options($it, @_);
   return;
 }
 
 #--------------------------------------------------------------------------
 
 =back
-
-=cut
 
 =head2 Parameters for n/r/noop
 
@@ -622,15 +616,14 @@ down to G10, but "A_u4" is forced down to an A9.  But that boundary
 has to pop up someplace -- it's just unfortunate that it's in the
 middle of octave 10.)
 
-=cut
+=end pod
 
-sub _parse_options { # common parser for n/r/noop options
+sub parse-options($it, *@args) { # common parser for n/r/noop options
   # This is the guts of the whole module.  Understand this and you'll
   #  understand everything.
-  my( $it, @args ) = @_;
   my @new_notes = ();
-  print "options for _parse_options: ", map("<$_>", @args), "\n" if $Debug > 3;
-  croak "no target for _parse_options" unless ref $it;
+  print "options for parse-options: ", map("<$_>", @args), "\n" if $Debug > 3;
+  croak "no target for parse-options" unless ref $it;
   foreach my $arg (@args) {
     next unless length($arg); # sanity check
 
@@ -854,7 +847,7 @@ you can say:
 But, stylistically, I suggest not using these procedures -- just
 directly access the variables instead.
 
-=cut
+=end pod
 
 #--------------------------------------------------------------------------
 # read-or-write methods
@@ -1087,7 +1080,7 @@ And here's the ones I'll be surprised if anyone ever uses:
 
 =back
 
-=cut
+=end pod
 
 sub key_after_touch ($$$) { &_common_push('key_after_touch', @_) }
 sub control_change ($$$) { &_common_push('control_change', @_) }
@@ -1222,7 +1215,7 @@ C<time_signature> anyway, which is not necessarily a given.)
 
 =over
 
-=cut
+=end pod
 
 sub _test_proc {
   my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
@@ -1245,7 +1238,7 @@ write_score, you'll get the opus created, if you want it for anything.
 (Also: you can also use a filehandle-reference instead of the
 filespec: C<write_score *STDOUT{IO}>.)
 
-=cut
+=end pod
 
 sub write_score {
   my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
@@ -1311,7 +1304,7 @@ something like:
         @Score =  @$score_r;
         $Time = $end_time;
 
-=cut
+=end pod
 
 sub read_score {
   my $am_cons = ($_[0] eq "MIDI::Simple");
@@ -1415,7 +1408,7 @@ of synch:
           foreach my $note (@phrase) { $it->n($note); }
         }
 
-=cut
+=end pod
 
 sub synch {
   my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
@@ -1449,13 +1442,14 @@ sub synch {
 
 ########################################################################### 
 
+=begin pod
 =item $opus = make_opus  or  $opus = $obj->make_opus
 
 Makes an opus (a MIDI::Opus object) out of Score, setting the opus's
 tick parameter (AKA "divisions") to $ticks.  The opus is,
 incidentally, format 0, with one track.
 
-=cut
+=end pod
 
 sub make_opus {
   # Make a format-0 one-track MIDI out of this score.
@@ -1481,6 +1475,7 @@ sub make_opus {
 
 ###########################################################################
 
+=begin pod
 =item dump_score  or  $obj->dump_score
 
 Dumps Score's contents, via C<print> (so you can C<select()> an output
@@ -1494,7 +1489,7 @@ the future I may (should?) make it output in C<n>/C<r> notation.  In
 the meantime I assume you'll use this, if at all, only for debugging
 purposes.
 
-=cut
+=end pod
 
 sub dump_score {
   my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
@@ -1506,7 +1501,7 @@ sub dump_score {
 ###########################################################################
 ###########################################################################
 
-=back
+=begin pod
 
 =head2 FUNCTIONS
 
@@ -1530,7 +1525,7 @@ which returns the list C<(C,E,G,Bf3,D4,F4)>.
 Items in LIST which aren't note specifications are passed thru
 unaltered.
 
-=cut
+=end pod
 
 sub interval { # apply an interval to a list of notes.
   my(@out);
@@ -1570,6 +1565,7 @@ sub interval { # apply an interval to a list of notes.
 }
 #--------------------------------------------------------------------------
 
+=begin pod
 =item note_map { BLOCK } LIST
 
 This is pretty much based on (or at least inspired by) the normal Perl
@@ -1659,7 +1655,7 @@ or
 C<note_map>, like C<map>, can seem confusing to beginning programmers
 (and many intermediate ones, too), but it is quite powerful.
 
-=cut
+=end pod
 
 sub note_map (&@) { # map a function to a list of notes
   my($sub, @notes) = @_;
@@ -1700,6 +1696,7 @@ sub note_map (&@) { # map a function to a list of notes
 
 ###########################################################################
 
+=begin pod
 =item number_to_absolute NUMBER
 
 This returns the absolute note specification (in the form "C5") that
@@ -1709,7 +1706,7 @@ This is like looking up the note number in %MIDI::number2note -- not
 exactly the same, but effectively the same.  See the source for more
 details.
 
-=cut
+=end pod
 
 sub number_to_absolute ($) {
   my $in = int($_[0]);
@@ -1717,6 +1714,7 @@ sub number_to_absolute ($) {
   return( $MIDI::Simple::Note[ $in % 12 ] . int($in / 12) );
 }
 
+=begin pod
 =item the function number_to_relative NUMBER
 
 This returns the relative note specification that NUMBER represents.
@@ -1733,7 +1731,7 @@ interval [0,2] 'F'.  This should illustrate the concept:
           number_to_relative( 19)   =>   "G_u1"
           number_to_relative( 40)   =>   "E_u3"
 
-=cut
+=end pod
 
 sub number_to_relative ($) {
   my $o_spec;
@@ -1751,6 +1749,7 @@ sub number_to_relative ($) {
 
 ###########################################################################
 
+=begin pod
 =item is_note_spec STRING
 
 If STRING is a note specification, C<is_note_spec(STRING)> returns a
@@ -1773,7 +1772,7 @@ Example usage:
           push @other_stuff, $thing;  # or whatever
         }
 
-=cut
+=end pod
 
 sub is_note_spec ($) {
   # if false, return()
@@ -1785,6 +1784,7 @@ sub is_note_spec ($) {
   return();
 }
 
+=begin pod
 =item is_relative_note_spec STRING
 
 If STRING is an relative note specification, returns the note number
@@ -1831,7 +1831,7 @@ often at all -- I basically wrote these for internal use by
 MIDI::Simple, then I documented them on the off chance they I<might>
 be of use to anyone else.)
 
-=cut
+=end pod
 
 sub is_relative_note_spec ($) {
   # if false, return()
@@ -1858,12 +1858,13 @@ sub is_relative_note_spec ($) {
   return @ret;
 }
 
+=begin pod
 =item is_absolute_note_spec STRING
 
 Just like C<is_relative_note_spec>, but for absolute note
 specifications instead of relative ones.
 
-=cut
+=end pod
 
 sub is_absolute_note_spec ($) {
   # if false, return()
@@ -1882,6 +1883,7 @@ sub is_absolute_note_spec ($) {
 
 #--------------------------------------------------------------------------
 
+=begin pod
 =item Self() or $obj->Self();
 
 Presumably the second syntax is useless -- it just returns $obj.  But
@@ -1904,7 +1906,7 @@ MIDI::Simple object, what to say?  Simply,
   $package_opus = Self;
   funkify($package_opus);
 
-=cut
+=end pod
 
 sub Self { # pointless as a method -- but as a sub, useful if
   # you want to access your current package's object.
@@ -1915,12 +1917,9 @@ sub Self { # pointless as a method -- but as a sub, useful if
   return $it;
 }
 
-=back
-
-=cut
-
 ###########################################################################
 
+=begin pod
 =head1 COPYRIGHT 
 
 Copyright (c) 1998-2005 Sean M. Burke. All rights reserved.
@@ -1932,8 +1931,4 @@ modify it under the same terms as Perl itself.
 
 Sean M. Burke C<sburke@cpan.org>
 
-=cut
-
-1;
-
-__END__
+=end pod

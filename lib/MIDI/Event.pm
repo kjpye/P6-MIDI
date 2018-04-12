@@ -1,422 +1,14 @@
 use v6;
 
-use PackUnpack;
+use P5pack;
 
 my $Debug = 1;
 my $VERSION = '0.84';
 
-class MIDI::Event {...}
-
-class MIDI::Event::Note-off is MIDI::Event {
-  has $.channel;
-  has $.note-number;
-  has $.velocity;
-
-  method encode($use-running-status, $last-status is rw --> Buf {
-    my $status = 0x80 +| $!channel +& 0x0f;
-    my $use-old-status = $use-running-status & ($status == $last-status);
-    $last-status = $status;
-    $use-old-status
-      ?? # we can use running status
-        pack('wCC',  $!time,          $!note-number +& 0x7f,
-                                      $!velocity +& 0x7f)
-      !! # otherwise
-        pack('wCCC', $!time, $status, $!note-number +& 0x7f,
-                                      $!velocity +& 0x7f)
-    ;
-  }
-}
-
-class MIDI::Event::Note-on is MIDI::Event {
-  has $.channel;
-  has $.note-number;
-  has $.velocity;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    my $status = 0x90 +| $!channel +& 0x0f;
-    my $use-old-status = $use-running-status & ($status == $last-status);
-    $last-status = $status;
-    $use-old-status
-      ?? # we can use running status
-        pack('wCC',  $!time,          $!note-number +& 0x7f,
-                                      $!velocity +& 0x7f)
-      !! # otherwise
-        pack('wCCC', $!time, $status, $!note-number +& 0x7f,
-                                      $!velocity +& 0x7f)
-    ;
-}
-
-class MIDI::Event::Key-after-touch is MIDI::Event {
-  has $.channel;
-  has $.note-number;
-  has $.aftertouch;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    my $status = 0xa0 +| $!channel +& 0x0f;
-    my $use-old-status = $use-running-status & ($status == $last-status);
-    $last-status = $status;
-    $use-old-status
-      ?? # we can use running status
-        pack('wCC',  $!time,          $!note-number +& 0x7f,
-                                      $!aftertouch +& 0x7f)
-      !! # otherwise
-        pack('wCCC', $!time, $status, $!note-number +& 0x7f,
-                                     $!aftertouch +& 0x7f)
-    ;
-  }
-}
-
-class MIDI::Event::Controller-change is MIDI::Event {
-  has $.channel;
-  has $.number;
-  has $.value;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    my $status = 0xb0 +| $!channel +& 0x0f;
-    my $use-old-status = $use-running-status & ($status == $last-status);
-    $last-status = $status;
-    $use-old-status
-      ?? # we can use running status
-        pack('wCC',  $!time,          $!number +& 0x7f,
-                                      $!value +& 0x7f)
-      !! # otherwise
-        pack('wCCC', $!time, $status, $!number +& 0x7f,
-                                      $!value +& 0x7f)
-    ;
-  }
-}
-
-class MIDI::Event::Patch-change is MIDI::Event {
-  has $.channel;
-  has $.patchnumber;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    my $status = 0xc0 +| $!channel +& 0x0f;
-    my $use-old-status = $use-running-status & ($status == $last-status);
-    $last-status = $status;
-    $use-old-status
-      ?? # we can use running status
-        pack('wCC',  $!time,          $!note-number +& 0x7f,
-                                      $!patchnumber +& 0x7f)
-      !! # otherwise
-        pack('wCCC', $!time, $status, $!note-number +& 0x7f,
-                                      $!paychnumber +& 0x7f)
-    ;
-  }
-}
-
-class MIDI::Event::Channel-after-touch is MIDI::Event {
-  has $.channel;
-  has $.aftertouch;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    my $status = 0xd0 +| $!channel +& 0x0f;
-    my $use-old-status = $use-running-status & ($status == $last-status);
-    $last-status = $status;
-    $use-old-status
-      ?? # we can use running status
-        pack('wCC',  $!time,          $!note-number +& 0x7f,
-                                      $!aftertouch  +& 0x7f)
-      !! # otherwise
-        pack('wCCC', $!time, $status, $!note-number +& 0x7f,
-                                      $!aftertouch  +& 0x7f)
-  }
-}
-
-class MIDI::Event::Pitch-wheel-change is MIDI::Event {
-  has $.channel;
-  has $.value
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    my $status = 0xd0 +| $!channel +& 0x0f;
-    my $use-old-status = $use-running-status & ($status == $last-status);
-    $last-status = $status;
-    $use-old-status
-      ?? # we can use running status
-        pack('wCC',  $!time,          $!value + 0x2000)
-      !! # otherwise
-        pack('wCCC', $!time, $status, $!value + 0x2000)
-  }
-}
-
-class MIDI::Event::Set-sequencer-number is MIDI::Event {
-  has $.sequence-number;
-}
-
-class MIDI::Event::Text-event is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x01, $!text;
-  }
-}
-
-  method encode-text-event($cmd, $text) {
-    pack 'CCwa*',
-         0xff,
-	 $text.length,
-	 $text;
-  }
-
-class MIDI::Event::Copyright is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x02, $!text;
-  }
-}
-
-class MIDI::Event::Track-name is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x03, $!text;
-  }
-}
-
-class MIDI::Event::Instrument-name is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x04, $!text;
-  }
-}
-
-class MIDI::Event::Lyric is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x05, $!text;
-  }
-}
-
-class MIDI::Event::Marker is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x06, $!text;
-  }
-}
-
-class MIDI::Event::Cue-point is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x07, $!text;
-  }
-}
-
-class MIDI::Event::Text-event-08 is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x08, $!text;
-  }
-}
-
-class MIDI::Event::Text-event-09 is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x09, $!text;
-  }
-}
-
-class MIDI::Event::Text-event-0a is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x0a, $!text;
-  }
-}
-
-class MIDI::Event::Text-event-0b is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x0b, $!text;
-  }
-}
-
-class MIDI::Event::Text-event-0c is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x0c, $!text;
-  }
-}
-
-class MIDI::Event::Text-event-0d is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x0d, $!text;
-  }
-}
-
-class MIDI::Event::Text-event-0e is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x0e, $!text;
-  }
-}
-
-class MIDI::Event::Text-event-0f is MIDI::Event {
-  has $.text;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    encode-text-event 0x0f, $!text;
-  }
-}
-
-class MIDI::Event::End-track is MIDI::Event {
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    Buf.new(0xff, 0x2f, 0x00);
-  }
-}
-
-class MIDI::Event::Set-tempo is MIDI::Event {
-  has $.tempo; # microseconds/quarter note
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCwa*',
-         0xff,
-	 0x51,
-	 3,
-	 subbuf(pack('N', $tempo), 1, 3);
-  }
-}
-
-class MIDI::Event::Smpte-offset is MIDI::Event {
-  has $.hours;
-  has $.minutes;
-  has $.seconds;
-  has $.fr;
-  has $.ff;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCWCCCCC',
-         0xff,
-	 0x51,
-	 5,
-	 $!hours,
-	 $!minutes,
-	 $!seconds,
-	 $!fr,
-	 $!ff;
-  }
-}
-
-class MIDI::Event::Time-signature is MIDI::Event {
-  has $.numerator;
-  has $.denominator;
-  has $.ticks;
-  has $.quarter-notes;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCWCCCC',
-         0xff,
-	 0x58
-	 4,
-	 $!numerator,
-	 $!denominator,
-	 $!ticks,
-	 $!quarter-notes;
-  }
-}
-
-class MIDI::Event::Key-signature is MIDI::Event {
-  has $.sharps;
-  has $.major-minor;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCwcC',
-         0xff,
-	 0x59,
-	 2,
-	 $!harps,
-	 $!major-minor;
-  }
-}
-
-class MIDI::Event::Sequencer-specific is MIDI::Event {
-  has $.data;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCwa*',
-         0xff,
-	 0x7f,
-	 $!data,
-	 $!data; # yes -- twice
-  {
-}
-
-class MIDI::Event::sysex-f0 is MIDI::Event {
-  has $.data;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'Cwa*',
-        0xf0,
-	$!data.bytes,
-	$!data;
-  }
-}
- 
-class MIDI::Event::sysex-f7 is MIDI::Event {
-  has $.data;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'Cwa*',
-        0xf7,
-	$!data.bytes,
-	$!data;
-  }
-}
-
-class MIDI::Event::Song-position is MIDI::Event {
-  has $.beats;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    Buf.new(0xf2) ~ write_u14_bit($!beats);
-  }
-}
-
-class MIDI::Event::Song-select is MIDI::Event {
-  has $.song-number;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CC',
-        0xf1,
-	$!song-number
-  }
-}
-
-class MIDI::Event::Tune-request is MIDI::Event {
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    Buf.new(0xf6);
-  }
-}
-
-class MIDI::Event::Raw is MIDI::Event {
-  has $.command;
-  has $.data;
-
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCwa*',
-      0xff,
-      $!command,
-      $!data.length,
-      $!data;
-  }
-}
-
 class MIDI::Event {
 
 # The contents of an event:
-  has $!type;
+
   has $.time = 0; # usually delta time, sometimes absolute time
 
 =begin pod
@@ -429,7 +21,7 @@ MIDI::Event - MIDI events
   # Dump a MIDI file's text events
   die "No filename" unless @ARGV;
   use MIDI;  # which "use"s MIDI::Event;
-  MIDI::Opus->new( {
+  MIDI::Opus.new( {
      "from_file"                => $ARGV[0],
      "exclusive_event_callback" => sub{print "$_[2]\n"},
      "include"                  => \@MIDI::Event::Text_events
@@ -482,7 +74,6 @@ the combination of all the above lists.
 
 =back
 
-=cut
 =end pod
 
 # Some helper functions to get data out of a buffer (to replace the original
@@ -534,20 +125,20 @@ sub getcompint($data, $pointer is rw) {
 # Some public-access lists:
 
 my @MIDI-events = <
-  note_off note_on key_after_touch control_change patch_change
+  note_off            note_on            key_after_touch     control_change patch_change
   channel_after_touch pitch_wheel_change set_sequence_number
 >;
 
 my @Text-events = <
-  text_event copyright_text_event track_name instrument_name lyric
-  marker cue_point text_event_08 text_event_09 text_event_0a
-  text_event_0b text_event_0c text_event_0d text_event_0e text_event_0f
+  text_event    copyright_text_event track_name    instrument_name lyric
+  marker        cue_point            text_event_08 text_event_09   text_event_0a
+  text_event_0b text_event_0c        text_event_0d text_event_0e   text_event_0f
 >;
 
 my @Nontext-meta-events = <
-  end_track set_tempo smpte_offset time_signature key_signature
-  sequencer_specific raw_meta_event sysex_f0 sysex_f7 song_position
-  song_select tune_request raw_data
+  end_track          set_tempo      smpte_offset time_signature key_signature
+  sequencer_specific raw_meta_event sysex_f0     sysex_f7       song_position
+  song_select        tune_request   raw_data
 >;
 
 # Actually, 'tune_request', for one, is an F-series event, not a
@@ -694,7 +285,6 @@ instead.  But it's here if you happen to need it.
 
 =back
 
-=cut
 =end pod
 ###########################################################################
 method dump {
@@ -719,10 +309,10 @@ sub read-u14-bit($in) {
 
 my $last-status = -1;
 
-  sub write-u14-bit($in) {
+method write-u14-bit($in) {
     # encode a 14 bit quantity, as needed for some events
-      ($in +& 0x7F) +| (($in +> 7) +& 0x7F)
-  }
+    ($in +& 0x7F) +| (($in +> 7) +& 0x7F)
+}
 
   ###########################################################################
   #
@@ -732,43 +322,42 @@ my $last-status = -1;
   #
   ###
 
-  sub decode(Buf $data, *%options) { # decode track data into an array of events
-    # Calling format: a big chunka MTrk track data.
-    # Returns an array of events.
-    # Note that this is a function call, not a constructor method call.
+sub decode(Buf $data, *%options) { # decode track data into an array of events
+  # Calling format: a big chunka MTrk track data.
+  # Returns an array of events.
+  # Note that this is a function call, not a constructor method call.
 
-    my @events = ();
+  my @events = ();
 
-    my %exclude = ();
-    if %options<exclude> {
-        %exclude = %options<exclude> Z=> 1;
-    } else {
-      # If we get an include (and no exclude), make %exclude a list
-      #  of all possible events, /minus/ what include specifies
-      if %options<include> {
-  	%exclude = @All-events Z=> 1;
-          for %options<include> -> $type {
-            %exclude{$type}:delete;
-          }
-      }
-    }
-    note "Exclusions: ", join ' ', %exclude.keys.sort
-      if $Debug;
+  my %exclude = ();
+  if %options<exclude> {
+			%exclude = %options<exclude> Z=> 1;
+		       } else {
+			 # If we get an include (and no exclude), make %exclude a list
+			 #  of all possible events, /minus/ what include specifies
+			 if %options<include> {
+					       %exclude = @All-events Z=> 1;
+					       for %options<include> -> $type {
+									       %exclude{$type}:delete;
+									      }
+					      }
+		       }
+  note "Exclusions: ", join ' ', %exclude.keys.sort
+    if $Debug;
 
-    my $event-callback = Nil;
-    if %options<event-callback> {
-  # TODO
-    }
+  my $event-callback = Nil;
+  if %options<event-callback> {
+			       # TODO
+			      }
     my $exclusive-event-callback = Nil;
-    if %options<exclusive-event-callback> {
-  # TODO
-    }
+  if %options<exclusive-event-callback> {
+					 # TODO
+					}
 
-    my $Pointer = 0; # points to where I am in the data
-    ######################################################################
-    if $Debug {
-      if $Debug == 1 {
-        note "Track data of ", $data.bytes, " bytes.";
+    my $Pointer = 0;		# points to where I am in the data
+  ######################################################################
+  if $Debug == 1 {
+    note "Track data of ", $data.bytes, " bytes.";
   }
 
 =begin pod
@@ -820,65 +409,65 @@ And these are the events:
 
 =over
 
-=cut
 =end pod
 
   # Things I use variously, below.  They're here just for efficiency's sake,
   # to avoid re-mying on each iteration.
   my ($command, $channel, $parameter, $length, $time, $remainder);
 
-  my $event_code = -1; # used for running status
+  my $event-code = -1;		# used for running status
 
-  my $event_count = 0;
-Event:  # Analyze the event stream.
+  my $event-count = 0;
+ Event:				# Analyze the event stream.
   while $Pointer + 1 < $data.bytes {
     # loop while there's anything to analyze ...
-    my $eot = 0; # When 1, the event registrar aborts this loop
-    ++$event_count;
+    my $eot = 0;	# When 1, the event registrar aborts this loop
+    ++$event-count;
 
     my $E;
     # E for event -- this is what we'll feed to the event registrar
     #  way at the end.
 
     # Slice off the delta time code, and analyze it
-      #!# print "Chew-code <", substr($$data_r,$Pointer,4), ">\n";
+    #!# print "Chew-code <", substr($$data_r,$Pointer,4), ">\n";
     $time = getcompint($data, $Pointer);
-      #!# print "Delta-time $time using ", 4 - length($remainder), " bytes\n"
-      #!#  if $Debug > 1;
+    #!# print "Delta-time $time using ", 4 - length($remainder), " bytes\n"
+    #!#  if $Debug > 1;
 
     # Now let's see what we can make of the command
-    my $first-byte = subbuf($data, $Pointer, 1).ord;
-      # Whatever parses $first-byte is responsible for moving $Pointer
-      #  forward.
-      #!#print "Event \# $event_count: $first-byte at track-offset $Pointer\n"
-      #!#  if $Debug > 1;
+    my $first-byte = $data.subbuf($Pointer, 1).ord;
+    # Whatever parses $first-byte is responsible for moving $Pointer
+    #  forward.
+    #!#print "Event \# $event_count: $first-byte at track-offset $Pointer\n"
+    #!#  if $Debug > 1;
 
     ######################################################################
 
-    if $first-byte < 0xF0 { # It's a MIDI event ##########################
-      if $first-byte >= 0x80 {
-	print "Explicit event $first-byte" if $Debug > 2;
-        ++$Pointer; # It's an explicit event.
-        $event_code = $first-byte;
-      } else {
-        # It's a running status mofo -- just use last $event_code value
-        if $event_code == -1 {
-          note "Uninterpretable use of running status; Aborting track."
-            if $Debug;
-          last Event;
-        }
-        # Let the argument-puller-offer move Pointer.
+    given $first-byte {
+	when ^0xf0 {
+	    if $first-byte >= 0x80 {
+		print "Explicit event $first-byte" if $Debug > 2;
+		++$Pointer;		# It's an explicit event.
+		$event-code = $first-byte;
+	    } else {
+		# It's a running status mofo -- just use last $event-code value
+		if $event-code < 0 {
+		    fail "Uninterpretable use of running status; Aborting track."
+		    if $Debug;
+		    last Event;
+		}
+	  # Let the argument-puller-offer move Pointer.
       }
-      $command = $event_code +& 0xF0;
-      $channel = $event_code +& 0x0F;
+      $command = $event-code +& 0xF0;
+      $channel = $event-code +& 0x0F;
 
       if $command == 0xC0 || $command == 0xD0 {
-        #  Pull off the 1-byte argument
-        $parameter = $data.subbuf($Pointer, 1);
-        ++$Pointer;
-      } else { # pull off the 2-byte argument
-        $parameter = $data.subbuf($Pointer, 2);
-        $Pointer += 2;
+	#  Pull off the 1-byte argument
+	$parameter = $data.subbuf($Pointer, 1);
+	++$Pointer;
+      } else {			# pull off the 2-byte argument
+	$parameter = $data.subbuf($Pointer, 2);
+	$Pointer += 2;
       }
 
       ###################################################################
@@ -887,114 +476,120 @@ Event:  # Analyze the event stream.
 =begin pod
 =item ('note_off', I<dtime>, I<channel>, I<note>, I<velocity>)
 
-=cut 
 =end pod
       given $command {
         when 0x80 {
-	  next if %exclude<note_off>;
-	  # for sake of efficiency
-	  $E = MIDI::Event::Note-off.new(
-					 time          => $time,
-					 channel       => $channel,
-					 note-number   => $parameter[0],
-					 velocity      => $parameter[1],
-                              );
-        }
+	    next if %exclude<note_off>;
+	    # for sake of efficiency
+	    $E = MIDI::Event::Note-off.new(
+		time          => $time,
+		channel       => $channel,
+		note-number   => $parameter[0],
+		velocity      => $parameter[1],
+	    );
+	}
 
 =begin pod
 =item ('note_on', I<dtime>, I<channel>, I<note>, I<velocity>)
 
 =end pod
-        when 0x90 {
-	  next if %exclude<note_on>;
-	  $E = MIDI::Event::Note-on.new(
-					time          => $time,
-					channel       => $channel,
-                                      note-number   => $parameter[0],
-                                      velocity      => $parameter[1],
-                             );
-        }
+       when 0x90 {
+         next if %exclude<note_on>;
+         $E = MIDI::Event::Note-on.new(
+	     time          => $time,
+	     channel       => $channel,
+	     note-number   => $parameter[0],
+	     velocity      => $parameter[1],
+	 );
+      }
 
 =begin pod
 =item ('key_after_touch', I<dtime>, I<channel>, I<note>, I<velocity>)
+
 =end pod
-        when 0xA0 {
-	  next if %exclude<key_after_touch>;
-	  $E = MIDI::Event::Key-after-touch.new(
-						time        => $time,
-						channel     => $channel,
-						note-number => $parameter[0],
-						aftertouch  => $parameter[1],
-                                             );
-        }
+       when 0xA0 {
+         next if %exclude<key_after_touch>;
+	 $E = MIDI::Event::Key-after-touch.new(
+	     time        => $time,
+	     channel     => $channel,
+	     note-number => $parameter[0],
+	     aftertouch  => $parameter[1],
+	 );
+       }
 
 =begin pod
 =item ('control_change', I<dtime>, I<channel>, I<controller(0-127)>, I<value(0-127)>)
+
 =end pod
         when 0xB0 {
-	  next if %exclude<control_change>;
+          next if %exclude<control_change>;
 	  $E = MIDI::Event::Control-change.new(
-					       time       => $time,
-					       channel    => $channel,
-					       controller => $parameter[0],
-					       value      => $parameter[1],
-                                            );
-        }
+	      time       => $time,
+	      channel    => $channel,
+	      controller => $parameter[0],
+	      value      => $parameter[1],
+	  );
+	}
 =begin pod
-=item ('patch_change', I<dtime>, I<channel>, I<patch>)
+			=item ('patch_change', I<dtime>, I<channel>, I<patch>)
+
 =end pod
         when 0xC0 {
           next if %exclude<patch_change>;
-          $E = MIDI::Event::Patch-change.new(
-			                     time         => $time,
-                                             channel      => $channel,
-                                            patch-number => $parameter[0],
-                                           );
+	  $E = MIDI::Event::Patch-change.new(
+	      time         => $time,
+	      channel      => $channel,
+	      patch-number => $parameter[0],
+	  );
         }
 
 =begin pod
 =item ('channel_after_touch', I<dtime>, I<channel>, I<velocity>)
+
 =end pod
         when 0xD0 {
           next if %exclude<channel_after_touch>;
-          $E = MIDI::Event::Channel-after-touch.new(
-  			                          time => $time,
-						  channel => $channel,
-                                                 );
-
+	  $E = MIDI::Event::Channel-after-touch.new(
+	      time => $time,
+	      channel => $channel,
+	  );
+        }
 =begin pod
 =item ('pitch_wheel_change', I<dtime>, I<channel>, I<pitch_wheel>)
+
 =end pod
         when 0xE0 {
-	next if %exclude<pitch_wheel_change>;
-        $E = MIDI::Event::Pitch-wheel-change.new(
-			                         time => $time,
-					         channel => $channel,
-					         value => read-u14-bit($parameter) - 0x2000
-                                                );
+          next if %exclude<pitch_wheel_change>;
+	  $E = MIDI::Event::Pitch-wheel-change.new(
+	      time => $time,
+	      channel => $channel,
+	      value => read-u14-bit($parameter) - 0x2000
+	  );
         }
         default {
-          note "Track data of ", $data.bytes, " bytes: <", $data ,">";
-        }
-      }
+	    note "Track data of ", $data.bytes, " bytes: <", $data ,">";
+	}
+      } # given $command
 
-    ######################################################################
-    } elsif $first-byte == 0xFF { # It's a Meta-Event! ##################
+			######################################################################
+    } # $first-byte< 0xf0
+    when 0xff {	
       $command = $data[$Pointer++];
       $length = getcompint($data, $Pointer);
 
 =begin pod
 =item ('set_sequence_number', I<dtime>, I<sequence>)
+
 =end pod
       given $command {
-        when 0x00 {
-          $E = MIDI::Event::Set-sequencer-number.new(
-						    time            => $time,
-						    sequence-number => getushort($data, $Pointer),
-						   );
-        }
+			  when 0x00 {
+			    $E = MIDI::Event::Set-sequencer-number.new(
+								       time            => $time,
+								       sequence-number => getushort($data, $Pointer),
+								      );
+			  }
 
-      # Defined text events ----------------------------------------------
+			  # Defined text events ----------------------------------------------
 
 =begin pod
 =item ('text_event', I<dtime>, I<text>)
@@ -1026,556 +621,832 @@ Event:  # Analyze the event stream.
 =item ('text_event_0e', I<dtime>, I<text>)
 
 =item ('text_event_0f', I<dtime>, I<text>)
+
 =end pod
-      when 0x01 {
-         $E =  MIDI::Event::Text-event.new(
-                                           time => $time,
-                                           text => subbuf($data, $Pointer, $length)
-                              );
-      } 
-      when 0x02 {
-         $E = MIDI::Event::Copyright.new(
-                                                    time => $time,
-                                                    text => subbuf($data, $Pointer, $length)
-                             );
-      }
-      when 0x03 {
-         $E = MIDI::Event::Track-name.new(
-                                          time => $time,
-                                          text => subbuf($data, $Pointer, $length)
-                                         );
-      }
-      when 0x04 {
-         $E = MIDI::Event::Instrument-name.new(
-                                               time => $time,
-                                               text => subbuf($data, $Pointer, $length)
-                             );
-      }
-      when 0x05 {
-         $E = MIDI::Event::Lyric.new(
-                                     time => $time,
-                                     text => subbuf($data, $Pointer, $length)
-                                    );
-      }
-      when 0x06 {
-         $E = MIDI.Event::Marker.new(
-                                     time => $time,
-                                     text => subbuf($data, $Pointer, $length)
-                            );
-      }
-      when 0x07 {
-         $E = MIDI::Event::Cue-point.new(
-                                         time => $time,
-                                         text => subbuf($data, $Pointer, $length)
-                                        );
-      }
+			  when 0x01 {
+			    $E =  MIDI::Event::Text-event.new(
+							      time => $time,
+							      text => $data.subbuf($Pointer, $length)
+							     );
+			  } 
+			  when 0x02 {
+			    $E = MIDI::Event::Copyright.new(
+							    time => $time,
+							    text => $data.subbuf($Pointer, $length)
+							   );
+			  }
+			  when 0x03 {
+			    $E = MIDI::Event::Track-name.new(
+							     time => $time,
+							     text => $data.subbuf($Pointer, $length)
+							    );
+			  }
+			  when 0x04 {
+			    $E = MIDI::Event::Instrument-name.new(
+								  time => $time,
+								  text => $data.subbuf($Pointer, $length)
+								 );
+			  }
+			  when 0x05 {
+			    $E = MIDI::Event::Lyric.new(
+							time => $time,
+							text => $data.subbuf($Pointer, $length)
+						       );
+			  }
+			  when 0x06 {
+			    $E = MIDI.Event::Marker.new(
+							time => $time,
+							text => $data.subbuf($Pointer, $length)
+						       );
+			  }
+			  when 0x07 {
+			    $E = MIDI::Event::Cue-point.new(
+							    time => $time,
+							    text => $data.subbuf($Pointer, $length)
+							   );
+			  }
 
-      # Reserved but apparently unassigned text events --------------------
+			  # Reserved but apparently unassigned text events --------------------
 
-      when 0x08 {
-         $E = MIDI::Event::Text-event-08.new(
-                                             time => $time,
-                                             text => subbuf($data, $Pointer, $length)
-                                            );
-      }
-      when 0x09 {
-         $E = MIDI::Event::Text-event-09.new(
-                                             time => $time,
-                                             text => subbuf($data, $Pointer, $length)
-                                            );
-      }
-      when 0x0a {
-         $E = MIDI::Event::Text-event-0a.new(
-                                             time => $time,
-                                             text => subbuf($data, $Pointer, $length)
-                                            );
-      }
-      when 0x0b {
-         $E = MIDI::Event::Text-event-0b.new(
-                                             time => $time,
-                                             text => subbuf($data, $Pointer, $length)
-                                            );
-      }
-      when 0x0c {
-         $E = MIDI::Event::Text-event-0c.new(
-                                             time => $time,
-                                             text => subbuf($data, $Pointer, $length)
-                                            );
-      }
-      when 0x0d {
-         $E = MIDI::Event::Text-event-0d.new(
-                                             time => $time,
-                                             text => subbuf($data, $Pointer, $length)
-                                            );
-      }
-      when 0x0e {
-         $E = MIDI::Event::Text-event-0e.new(
-                                             time => $time,
-                                             text => subbuf($data, $Pointer, $length)
-                                            );
-      }
+			  when 0x08 {
+			    $E = MIDI::Event::Text-event_08.new(
+								time => $time,
+								text => $data.subbuf($Pointer, $length)
+							       );
+			  }
+			  when 0x09 {
+			    $E = MIDI::Event::Text-event_09.new(
+								time => $time,
+								text => $data.subbuf($Pointer, $length)
+							       );
+			  }
+			  when 0x0a {
+			    $E = MIDI::Event::Text-event_0a.new(
+								time => $time,
+								text => $data.subbuf($Pointer, $length)
+							       );
+			  }
+			  when 0x0b {
+			    $E = MIDI::Event::Text-event_0b.new(
+								time => $time,
+								text => $data.subbuf($Pointer, $length)
+							       );
+			  }
+			  when 0x0c {
+			    $E = MIDI::Event::Text-event_0c.new(
+								time => $time,
+								text => $data.subbuf($Pointer, $length)
+							       );
+			  }
+			  when 0x0d {
+			    $E = MIDI::Event::Text-event_0d.new(
+								time => $time,
+								text => $data.subbuf($Pointer, $length)
+							       );
+			  }
+			  when 0x0e {
+			    $E = MIDI::Event::Text-event_0e.new(
+								time => $time,
+								text => $data.subbuf($Pointer, $length)
+							       );
+			  }
 
-      # Now the sticky events ---------------------------------------------
+			  # Now the sticky events ---------------------------------------------
 
 =begin pod
 =item ('end_track', I<dtime>)
+
 =end pod
-      when 0x2F {
-         $E = MIDI::Event::End-track.new(
-					 time => $time,
-                             );
-           # The code for handling this oddly comes LATER, in the
-           #  event registrar.
-      }
+			  when 0x2F {
+			    $E = MIDI::Event::End-track.new(
+							    time => $time,
+							   );
+			    # The code for handling this oddly comes LATER, in the
+			    #  event registrar.
+			  }
 
 =begin pod
 =item ('set_tempo', I<dtime>, I<tempo>)
+
 =end pod
 
-      when 0x51 {
-         $E = MIDI::Event::Set-tempo.new(
-					 time => $time,
-					 tempo => getint24($data),
-					);
-      }
+			  when 0x51 {
+			    $E = MIDI::Event::Set-tempo.new(
+							    time => $time,
+							    tempo => getint24($data),
+							   );
+			  }
 
 =begin pod
 =item ('smpte_offset', I<dtime>, I<hr>, I<mn>, I<se>, I<fr>, I<ff>)
+
 =end pod
 
-      when 0x54 {
-         $E = MIDI::Event::Smpte-offset.new(
-					    time    => $time,
-                                            hours   => $data[$Pointer],
-                                            minutes => $data[$Pointer+1],
-                                            seconds => $data[$Pointer+2],
-                                            fr      => $data[$Pointer+3],
-                                            ff      => $data[$Pointer+4],
-					   );
-      }
+			  when 0x54 {
+			    $E = MIDI::Event::Smpte-offset.new(
+							       time    => $time,
+							       hours   => $data[$Pointer],
+							       minutes => $data[$Pointer+1],
+							       seconds => $data[$Pointer+2],
+							       fr      => $data[$Pointer+3],
+							       ff      => $data[$Pointer+4],
+							      );
+			  }
 
 =begin pod
 =item ('time_signature', I<dtime>, I<nn>, I<dd>, I<cc>, I<bb>)
+
 =end pod
-      when 0x58 {
-         $E = MIDI::Event::Time-signature.new(
-					      time          => $time,
-					      numerator     => $data[$Pointer],
-					      denominator   => $data[$Pointer+1],
-					      ticks         => $data[$Pointer+2],
-					      quarter-notes => $data[$Pointer+3],
-					     );
-      }
+			  when 0x58 {
+			    $E = MIDI::Event::Time-signature.new(
+								 time          => $time,
+								 numerator     => $data[$Pointer],
+								 denominator   => $data[$Pointer+1],
+								 ticks         => $data[$Pointer+2],
+								 quarter-notes => $data[$Pointer+3],
+								);
+			  }
 
 =begin pod
 =item ('key_signature', I<dtime>, I<sf>, I<mi>)
+
 =end pod
-      when 0x59 {
-         $E = MIDI::Event::Key-signature.new(
-					     time => $time,
-					     sharps => signextendbyte($data[0]),
-                                             major-minor => $data[1],
-					    );
-      }
+			  when 0x59 {
+			    $E = MIDI::Event::Key-signature.new(
+								time => $time,
+								sharps => signextendbyte($data[0]),
+								major-minor => $data[1],
+							       );
+			  }
 
 =begin pod
 =item ('sequencer_specific', I<dtime>, I<raw>)
+
 =end pod
-      when 0x7F {
-         $E = MIDI::Event::Sequencer-specific.new(
-						  time => $time,
-						  data => subbuf($data, $Pointer, $length)
-						 );
-      }
+			  when 0x7F {
+			    $E = MIDI::Event::Sequencer-specific.new(
+								     time => $time,
+								     data => $data.subbuf($Pointer, $length)
+								    );
+			  }
 
 =begin pod
 =item ('raw_meta_event', I<dtime>, I<command>(0-255), I<raw>)
+
 =end pod
-      default {
-         $E = MIDI::Event::Raw.new(
-				   time    => $time,
-				   command => $command,
-                                   data    => subbuf($data, $Pointer, $length)
-				  );
-           # It's uninterpretable; record it as raw_data.
-      } # End of the meta-event ifcase.
+			  default {
+			    $E = MIDI::Event::Raw.new(
+						      time    => $time,
+						      command => $command,
+						      data    => $data.subbuf($Pointer, $length)
+						     );
+			    # It's uninterpretable; record it as raw_data.
+			  } # End of the meta-event ifcase.
+			 }
+# FIX:
+
+	  $Pointer += $length;	#  Now move Pointer
+
+	######################################################################
     }
-
-    $Pointer += $length; #  Now move Pointer
-
-    ######################################################################
-  } elsif $first-byte == 0xF0   # It's a SYSEX
-       || $first-byte == 0xF7 {
-      # Note that sysexes in MIDI /files/ are different than sysexes in
-      #  MIDI transmissions!!
-      # << The vast majority of system exclusive messages will just use the F0
-      # format.  For instance, the transmitted message F0 43 12 00 07 F7 would
-      # be stored in a MIDI file as F0 05 43 12 00 07 F7.  As mentioned above,
-      # it is required to include the F7 at the end so that the reader of the
-      # MIDI file knows that it has read the entire message. >>
-      # (But the F7 is omitted if this is a non-final block in a multiblock
-      # sysex; but the F7 (if there) is counted in the message's declared
-      # length, so we don't have to think about it anyway.)
-    $command = $data[$Pointer++];
-    $length  = getcompint($data, $Pointer);
+    when 0xF0 | 0xf7 { # It's a SYSEX
+	  # Note that sysexes in MIDI /files/ are different than sysexes in
+	  #  MIDI transmissions!!
+	  # << The vast majority of system exclusive messages will just use the F0
+	  # format.  For instance, the transmitted message F0 43 12 00 07 F7 would
+	  # be stored in a MIDI file as F0 05 43 12 00 07 F7.  As mentioned above,
+	  # it is required to include the F7 at the end so that the reader of the
+	  # MIDI file knows that it has read the entire message. >>
+	  # (But the F7 is omitted if this is a non-final block in a multiblock
+	  # sysex; but the F7 (if there) is counted in the message's declared
+	  # length, so we don't have to think about it anyway.)
+	  $command = $data[$Pointer++];
+	  $length  = getcompint($data, $Pointer);
 
 =begin pod
 =item ('sysex_f0', I<dtime>, I<raw>)
 
 =item ('sysex_f7', I<dtime>, I<raw>)
-=end pod
-  if $first-byte >= 0xf0 {
-    given $first-byte {
-      when 0xf0 {
-	$E = MIDI::Event::Sysex-f0.new(
-				       time    => $time,
-				       command => $command,
-				       data    => subbuf($data, $Pointer, $length),
-				      );
-	$Pointer += $length; #  Now move past the data
-      }
-      when 0xf7 {
-	$E = MIDI::Event::Sysex-f7.new(
-				       time    => $time,
-				       command => $command,
-				       data    => subbuf($data, $Pointer, $length),
-				      );
-	$Pointer += $length; #  Now move past the data
-      }
 
-      ######################################################################
-      # Now, the MIDI file spec says:
-      #  <track data> = <MTrk event>+
-      #  <MTrk event> = <delta-time> <event>
-      #  <event> = <MIDI event> | <sysex event> | <meta-event>
-      # I know that, on the wire, <MIDI event> can include note_on,
-      # note_off, and all the other 8x to Ex events, AND Fx events
-      # other than F0, F7, and FF -- namely, <song position msg>,
-      # <song select msg>, and <tune request>.
-      #
-      # Whether these can occur in MIDI files is not clear specified from
-      # the MIDI file spec.
-      #
-      # So, I'm going to assume that they CAN, in practice, occur.
-      # I don't know whether it's proper for you to actually emit these
-      # into a MIDI file.
-      #
-    }
+=end pod
+	      given $first-byte {
+		when 0xf0 {
+		  $E = MIDI::Event::Sysex-f0.new(
+						 time    => $time,
+						 command => $command,
+						 data    => $data.subbuf($Pointer, $length),
+						);
+		  $Pointer += $length; #  Now move past the data
+		}
+		  when 0xf7 {
+		    $E = MIDI::Event::Sysex-f7.new(
+						   time    => $time,
+						   command => $command,
+						   data    => $data.subbuf($Pointer, $length),
+						  );
+		    $Pointer += $length; #  Now move past the data
+		  }
+
+		  ######################################################################
+		  # Now, the MIDI file spec says:
+		  #  <track data> = <MTrk event>+
+		  #  <MTrk event> = <delta-time> <event>
+		  #  <event> = <MIDI event> | <sysex event> | <meta-event>
+		  # I know that, on the wire, <MIDI event> can include note_on,
+		  # note_off, and all the other 8x to Ex events, AND Fx events
+		  # other than F0, F7, and FF -- namely, <song position msg>,
+		  # <song select msg>, and <tune request>.
+		  #
+		  # Whether these can occur in MIDI files is not clear specified from
+		  # the MIDI file spec.
+		  #
+		  # So, I'm going to assume that they CAN, in practice, occur.
+		  # I don't know whether it's proper for you to actually emit these
+		  # into a MIDI file.
+		  #
+		}
 
 =begin pod
 =item ('song_position', I<dtime>)
+
 =end pod
-  #  <song position msg> ::=     F2 <data pair>
-    when 0xf2 {
-      $E = MIDI::Event::Song-position.new(
-					  time  => $time,
-					  beats => &read-u14-bit(subbuf($data, $Pointer+1, 2) )
-					 );
-      $Pointer += 3; # itself, and 2 data bytes
-    }
+		#  <song position msg> ::=     F2 <data pair>
+		when 0xf2 {
+		  $E = MIDI::Event::Song-position.new(
+						      time  => $time,
+						      beats => &read-u14-bit($data.subbuf($Pointer+1, 2) )
+						     );
+		  $Pointer += 3; # itself, and 2 data bytes
+		}
 
 =begin pod
 =item ('song_select', I<dtime>, I<song_number>)
-=end pod
-  #  <song select msg> ::=       F3 <data singlet>
-    when 0xf3 {
-      $E = MIDI::Event::Song-select.new(
-					time        => $time,
-					song-number => $data[$Pointer+1],
-				       );
-      $Pointer += 2;  # itself, and 1 data byte
 
-      ######################################################################
-    }
+=end pod
+		#  <song select msg> ::=       F3 <data singlet>
+		when 0xf3 {
+		  $E = MIDI::Event::Song-select.new(
+						    time        => $time,
+						    song-number => $data[$Pointer+1],
+						   );
+		  $Pointer += 2; # itself, and 1 data byte
+
+		  ######################################################################
+		}
 
 =begin pod
 =item ('tune_request', I<dtime>)
-=end pod
-      #  <tune request> ::=          F6
-    when 0xF6 { # It's a Tune Request! ################
-      $E = MIDI::Event::Tune-request.new(
-					 time => $time
-					);
-      # DTime
-      # What the Sam Scratch would a tune request be doing in a MIDI /file/?
-      ++$Pointer;  # itself
-    }
 
-###########################################################################
-## ADD MORE META-EVENTS HERE
-#Done:
-# f0 f7 -- sysexes
-# f2 -- song position
-# f3 -- song select
-# f6 -- tune request
-# ff -- metaevent
-###########################################################################
-#TODO:
-# f1 -- MTC Quarter Frame Message.   one data byte follows.
-#     One data byte follows the Status. It's the time code value, a number
-#     from 0 to 127.
-# f8 -- MIDI clock.  no data.
-# fa -- MIDI start.  no data.
-# fb -- MIDI continue.  no data.
-# fc -- MIDI stop.  no data.
-# fe -- Active sense.  no data.
-# f4 f5 f9 fd -- unallocated
+=end pod
+		#  <tune request> ::=          F6
+		when 0xF6 {    # It's a Tune Request! ################
+		  $E = MIDI::Event::Tune-request.new(
+						     time => $time
+						    );
+		  # DTime
+		  # What the Sam Scratch would a tune request be doing in a MIDI /file/?
+		  ++$Pointer;	# itself
+		}
+
+		###########################################################################
+		## ADD MORE META-EVENTS HERE
+		#Done:
+		# f0 f7 -- sysexes
+		# f2 -- song position
+		# f3 -- song select
+		# f6 -- tune request
+		# ff -- metaevent
+		###########################################################################
+		#TODO:
+		# f1 -- MTC Quarter Frame Message.   one data byte follows.
+		#     One data byte follows the Status. It's the time code value, a number
+		#     from 0 to 127.
+		# f8 -- MIDI clock.  no data.
+		# fa -- MIDI start.  no data.
+		# fb -- MIDI continue.  no data.
+		# fc -- MIDI stop.  no data.
+		# fe -- Active sense.  no data.
+		# f4 f5 f9 fd -- unallocated
 
 =begin pod
 =item ('raw_data', I<dtime>, I<raw>)
+
 =end pod
-      # Here we only produce a one-byte piece of raw data.
-      # But the encoder for 'raw_data' accepts any length of it.
-    default {
-      $E = MIDI::Event::Raw.new(
-				command => $first-byte
-				time    => $time,
-				data    => subbuf($data,$Pointer,1)
-			       );
-      # DTime and the Data (in this case, the one Event-byte)
-      ++$Pointer;  # itself
+# Here we only produce a one-byte piece of raw data.
+# But the encoder for 'raw_data' accepts any length of it.
+		default {
+		  $E = MIDI::Event::Raw.new(
+					    command => $first-byte,
+					    time    => $time,
+					    data    => $data.subbuf($Pointer,1)
+					   );
+		  # DTime and the Data (in this case, the one Event-byte)
+		  ++$Pointer;	# itself
+		}
+
+		######################################################################
     }
+    default { # Fallthru.  How could we end up here? ######################
+		note
+		  "Aborting track.  Command-byte $first-byte at track offset $Pointer";
+		last Event;
+	      }
+}
+	  # End of the big if-group
 
-    ######################################################################
-    } else { # Fallthru.  How could we end up here? ######################
-      note
-        "Aborting track.  Command-byte $first-byte at track offset $Pointer";
-      last Event;
-    }
-    # End of the big if-group
 
+	  #####################################################################
+	  ######################################################################
+	  ##
+	  #   By the Power of Greyskull, I AM THE EVENT REGISTRAR!
+	  ##
+	  if $E ~~ (Midi::Event::End-track) {
+	    # This is the code for exceptional handling of the EOT event.
+	    $eot = 1;
+	    unless %options<no_eot_magic>
+	    and %options<no_eot_magic> {
+		if $E.time > 0 {
+		    $E = MIDI::Event::Text-event.new(
+			time => $E[1],
+			text => Buf.new(),
+		    );
+		    # Make up a fictive 0-length text event as a carrier
+		    #  for the non-zero delta-time.
+		    
+		    if $E and %exclude{$E.type} {
+                      if $Debug {
+                        print " Excluding:\n";
+                        dd($E);
+		      }
+                    } else {
+                      if $Debug {
+			  print " Processing:\n";
+			  dd($E);
+		      }
+		      if $E {
+			  if $exclusive-event-callback {
+			      &{ $exclusive-event-callback }( $E );
+			  } else {
+			      &{ $event-callback }( $E ) if $event-callback;
+			      @events.push: $E;
+			  }
+		      }
+		    }
+		    last Event if $eot;
+		}
+	    }
+	      # End of the bigass "Event" while-block
+	    
+	    return @events;
+	  }
+	}
+}
 
-     #####################################################################
-    ######################################################################
-    ##
-    #   By the Power of Greyskull, I AM THE EVENT REGISTRAR!
-    ##
-    if $E ~~ Midi::Event::End-track {
-      # This is the code for exceptional handling of the EOT event.
-      $eot = 1;
-      unless %options<no_eot_magic>
-	      and %options<no_eot_magic> {
-        if $E.time > 0 {
-          $E = MIDI::Event::Text-event.new(
-					   time => $E[1],
-					   text => Buf.new(),
-					  );
-          # Make up a fictive 0-length text event as a carrier
-          #  for the non-zero delta-time.
+method encode($use-running-status, $last-status is rw --> Buf) {
+  (Buf);
+}
 
-      if $E and %exclude{$E.type} {
-        if $Debug {
-          print " Excluding:\n";
-          dd($E);
-        }
-      } else {
-        if $Debug {
-          print " Processing:\n";
-          dd($E);
-        }
-        if $E {
-  	if $exclusive-event-callback {
-  	  &{ $exclusive-event-callback }( $E );
-  	} else {
-  	  &{ $event-callback }( $E ) if $event-callback;
-  	  @events.push: $E;
-  	}
-        }
-      }
+method encode-text-event($cmd, $text) {
+  pack 'CCwa*',
+    0xff,
+    $text.length,
+    $text;
+}
 
-      last Event if $eot;
-    }
-    # End of the bigass "Event" while-block
+}				# class Event
 
-    return @events;
+class MIDI::Event::Note-off is MIDI::Event {
+  has $.time;
+  has $.channel;
+  has $.note-number;
+  has $.velocity;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    my $status = 0x80 +| $!channel +& 0x0f;
+    my $use-old-status = $use-running-status & ($status == $last-status);
+    $last-status = $status;
+    $use-old-status
+      ?? # we can use running status
+        pack('wCC',  $!time,          $!note-number +& 0x7f,
+                                      $!velocity +& 0x7f)
+      !! # otherwise
+        pack('wCCC', $!time, $status, $!note-number +& 0x7f,
+                                      $!velocity +& 0x7f)
+    ;
   }
+}
 
-  method encode-event($last-status is rw, *%options) {
+class MIDI::Event::Note-on is MIDI::Event {
+  has $.time;
+  has $.channel;
+  has $.note-number;
+  has $.velocity;
 
-    my ($event, $dtime, $event-data, $status, $parameters);
-    my @data;
-
-    $event-data = '';
-
-    $dtime = $!time;
-    if   $!type eq 'note-off'
-      or $!type eq 'note-on'
-      or $!type eq 'key-after-touch'
-      or $!type eq 'control-change'
-      or $!type eq 'patch-change'
-      or $!type eq 'channel-after-touch'
-      or $!type eq 'pitch-wheel-change'
-    {
-      given $!type {
-        # $status = $parameters = '';
-        # This block is where we spend most of the time.  Gotta be tight.
-
-        when 'note-off' {
-  	$status = 0x80 +| @!args[0] +& 0x0F;
-  	$parameters = pack('C2',
-  			   @!args[1] +& 0x7F, @!args[2] +& 0x7F);
-        }
-        when 'note-on' {
-  	$status = 0x90 +| @!args[0] +& 0x0F;
-  	$parameters = pack('C2',
-  			   @!args[1] +& 0x7F, @!args[2] +& 0x7F);
-        }
-        when 'key-after-touch' {
-  	$status = 0xA0 +| @!args[0] +& 0x0F;
-  	$parameters = pack('C2',
-  			   @!args[1] +& 0x7F, @!args[2] +& 0x7F);
-        }
-        when 'control-change' {
-  	$status = 0xB0 +| @!args[0] +& 0x0F;
-  	$parameters = pack('C2',
-  			   @!args[1] +& 0xFF, @!args[2] +& 0xFF);
-        }
-        when 'patch-change' {
-  	$status = 0xC0 +| @!args[0] +& 0x0F;
-  	$parameters = pack('C',
-  			   @!args[1] +& 0xFF);
-        }
-        when 'channel-after-touch' {
-  	$status = 0xD0 +| @!args[0] +& 0x0F;
-  	$parameters = pack('C',
-  			   @!args[1] & 0xFF);
-        }
-        when 'pitch-wheel-change' {
-  	$status = 0xE0 +| @!args[0] +& 0x0F;
-          $parameters =  write-u14-bit(@!args[1] + 0x2000);
-        }
-      }
-    # And now the encoding
-      my $buf = 
-  	( ! %options<no-running-status>  and  $status == $last-status)
-              ??
-                pack('wa*', $dtime, $parameters) # If we can use running status.
-              !!
-  	        pack('wCa*', $dtime, $status, $parameters)  # If we can't.
-        ;
-        $last-status = $status;
-        return $buf;
-      }
-
-        # Not a MIDI event.
-        # All the code in this block could be more efficient, but frankly,
-        # this is not where the code needs to be tight.
-        # So we wade thru the cases and eventually hopefully fall thru
-        # with $event-data set.
-  #print "zaz $event\n";
-        $last-status = -1;
-
-    given $!type {
-      when 'raw-meta-event' {
-        $event-data = pack("CCwa*", 0xFF, @!args[0].int, @!args[1].bytes, @!args[1]);
-    }
-  # Text meta-events...
-    }    when 'text_event' {
-      $event_data = pack("CCwa*", 0xFF, 0x01, @!args[0].bytes, @!args[0]);
-      }
-  when 'copyright_text_event' {
-	$event_data = pack("CCwa*", 0xFF, 0x02, @!args[0].bytes, @!args[0]);
-      }
-  when 'track_name' {
-	$event_data = pack("CCwa*", 0xFF, 0x03, @!args[0].bytes, @!args[0]);
-      }
-  when 'instrument_name' {
-	$event_data = pack("CCwa*", 0xFF, 0x04, @!args[0].bytes, @!args[0]);
-      }
-  when 'lyric' {
-	$event_data = pack("CCwa*", 0xFF, 0x05, @!args[0].bytes, @!args[0]);
-      }
-  when 'marker' {
-	$event_data = pack("CCwa*", 0xFF, 0x06, @!args[0].bytes, @!args[0]);
-      }
-  when 'cue_point' {
-	$event_data = pack("CCwa*", 0xFF, 0x07, @!args[0].bytes, @!args[0]);
-      }
-  when 'text_event_08' {
-	$event_data = pack("CCwa*", 0xFF, 0x08, @!args[0].bytes, @!args[0]);
-      }
-  when 'text_event_09' {
-	$event_data = pack("CCwa*", 0xFF, 0x09, @!args[0].bytes, @!args[0]);
-      }
-  when 'text_event_0a' {
-	$event_data = pack("CCwa*", 0xFF, 0x0a, @!args[0].bytes, @!args[0]);
-      }
-  when 'text_event_0b' {
-	$event_data = pack("CCwa*", 0xFF, 0x0b, @!args[0].bytes, @!args[0]);
-      }
-  when 'text_event_0c' {
-	$event_data = pack("CCwa*", 0xFF, 0x0c, @!args[0].bytes, @!args[0]);
-      }
-  when 'text_event_0d' {
-	$event_data = pack("CCwa*", 0xFF, 0x0d, @!args[0].bytes, @!args[0]);
-      }
-  when 'text_event_0e' {
-	$event_data = pack("CCwa*", 0xFF, 0x0e, @!args[0].bytes, @!args[0]);
-      }
-  when 'text_event_0f' {
-	$event_data = pack("CCwa*", 0xFF, 0x0f, @!args[0].bytes, @!args[0]);
-      # End of text meta-events
-
-      }
-  when 'end_track' {
-	$event_data = "\xFF\x2F\x00";
-      }
-  when 'set_tempo' {
- 	$event_data = pack("CCwa*", 0xFF, 0x51, 3,
-			    subbuf( pack('N', @!args[0]), 1, 3
-                          ));
-      }
-  when 'smpte_offset' {
- 	$event_data = pack("CCwCCCCC", 0xFF, 0x54, 5, @!args[0,1,2,3,4] );
-      }
-  when 'time_signature' {
- 	$event_data = pack("CCwCCCC",  0xFF, 0x58, 4, @!args[0,1,2,3] );
-      }
-  when 'key_signature' {
- 	$event_data = pack("CCwcC",    0xFF, 0x59, 2, @!args[0,1]);
-      }
-  when 'sequencer_specific' {
- 	$event_data = pack("CCwa*",    0xFF, 0x7F, @!args[0], @!args[0]);
-      # End of Meta-events
-
-      # Other Things...
-      }
-  when 'sysex_f0' {
- 	$event_data = pack("Cwa*", 0xF0, @!args[0].bytes, @!args[0]);
-      }
-  when 'sysex_f7' {
- 	$event_data = pack("Cwa*", 0xF7, @!args[0].bytes, @!args[0]);
-
-      }
-  when 'song_position' {
- 	$event_data = "\xF2" ~ write-u14-bit( @!args[0] );
-      }
-  when 'song_select' {
- 	$event_data = pack('CC', 0xF3, @!args[0] );
-      }
-  when 'tune_request' {
- 	$event_data = "\xF6";
-
-    default {
-  	# The Big Fallthru
-  #NYI         if $!unknown-callback {
-  #NYI 	  @data.append: $!unknown-callback( $event );
-  #NYI         } else {
-  #NYI           note "Unknown event: \'$event\'\n";
-  #NYI           # To supress complaint here, just set
-  #NYI           #  'unknown-callback' => sub { return () }
-  #NYI         }
-  #NYI 	next;
-        }
-  
-  #print "Event $event encoded part 2\n";
-        @data.push: pack('wa*', $dtime, $event-data)
-          if $event-data.bytes; # how could $event-data be empty?
-      }
-    return Buf.new: @data;
-  } # method encode-event
-
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    my $status = 0x90 +| $!channel +& 0x0f;
+    my $use-old-status = $use-running-status & ($status == $last-status);
+    $last-status = $status;
+    $use-old-status
+      ?? # we can use running status
+        pack('wCC',  $!time,          $!note-number +& 0x7f,
+                                      $!velocity +& 0x7f)
+      !! # otherwise
+        pack('wCCC', $!time, $status, $!note-number +& 0x7f,
+                                      $!velocity +& 0x7f)
+    ;
   }
+}
 
-} # class Event
+class MIDI::Event::Key-after-touch is MIDI::Event {
+  has $.time;
+  has $.channel;
+  has $.note-number;
+  has $.aftertouch;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    my $status = 0xa0 +| $!channel +& 0x0f;
+    my $use-old-status = $use-running-status & ($status == $last-status);
+    $last-status = $status;
+    $use-old-status
+      ?? # we can use running status
+        pack('wCC',  $!time,          $!note-number +& 0x7f,
+                                      $!aftertouch +& 0x7f)
+      !! # otherwise
+        pack('wCCC', $!time, $status, $!note-number +& 0x7f,
+                                     $!aftertouch +& 0x7f)
+    ;
+  }
+}
+
+class MIDI::Event::Controller-change is MIDI::Event {
+  has $.time;
+  has $.channel;
+  has $.number;
+  has $.value;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    my $status = 0xb0 +| $!channel +& 0x0f;
+    my $use-old-status = $use-running-status & ($status == $last-status);
+    $last-status = $status;
+    $use-old-status
+      ?? # we can use running status
+        pack('wCC',  $!time,          $!number +& 0x7f,
+                                      $!value +& 0x7f)
+      !! # otherwise
+        pack('wCCC', $!time, $status, $!number +& 0x7f,
+                                      $!value +& 0x7f)
+    ;
+  }
+}
+
+class MIDI::Event::Patch-change is MIDI::Event {
+  has $.time;
+  has $.channel;
+  has $.patchnumber;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    my $status = 0xc0 +| $!channel +& 0x0f;
+    my $use-old-status = $use-running-status & ($status == $last-status);
+    $last-status = $status;
+    $use-old-status
+      ?? # we can use running status
+        pack('wCC',  $!time,          $!channel     +& 0x7f,
+                                      $!patchnumber +& 0x7f)
+      !! # otherwise
+        pack('wCCC', $!time, $status, $!channel     +& 0x7f,
+                                      $!patchnumber +& 0x7f)
+    ;
+  }
+}
+
+class MIDI::Event::Channel-after-touch is MIDI::Event {
+  has $.time;
+  has $.channel;
+  has $.aftertouch;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    my $status = 0xd0 +| $!channel +& 0x0f;
+    my $use-old-status = $use-running-status & ($status == $last-status);
+    $last-status = $status;
+    $use-old-status
+      ?? # we can use running status
+        pack('wCC',  $!time,          $!channel    +& 0x7f,
+                                      $!aftertouch +& 0x7f)
+      !! # otherwise
+        pack('wCCC', $!time, $status, $!channel    +& 0x7f,
+                                      $!aftertouch +& 0x7f)
+  }
+}
+
+class MIDI::Event::Pitch-wheel-change is MIDI::Event {
+  has $.time;
+  has $.channel;
+  has $.value;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    my $status = 0xd0 +| $!channel +& 0x0f;
+    my $use-old-status = $use-running-status & ($status == $last-status);
+    $last-status = $status;
+    $use-old-status
+      ?? # we can use running status
+        pack('wCC',  $!time,          $!value + 0x2000)
+      !! # otherwise
+        pack('wCCC', $!time, $status, $!value + 0x2000)
+  }
+}
+
+class MIDI::Event::Set-sequencer-number is MIDI::Event {
+  has $.time;
+  has $.sequence-number;
+}
+
+class MIDI::Event::Text-event is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x01, $!text;
+  }
+}
+
+class MIDI::Event::Copyright is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x02, $!text;
+  }
+}
+
+class MIDI::Event::Track-name is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x03, $!text;
+  }
+}
+
+class MIDI::Event::Instrument-name is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x04, $!text;
+  }
+}
+
+class MIDI::Event::Lyric is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x05, $!text;
+  }
+}
+
+class MIDI::Event::Marker is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x06, $!text;
+  }
+}
+
+class MIDI::Event::Cue-point is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x07, $!text;
+  }
+}
+
+class MIDI::Event::Text-event_08 is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x08, $!text;
+  }
+}
+
+class MIDI::Event::Text-event_09 is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x09, $!text;
+  }
+}
+
+class MIDI::Event::Text-event_0a is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x0a, $!text;
+  }
+}
+
+class MIDI::Event::Text-event_0b is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x0b, $!text;
+  }
+}
+
+class MIDI::Event::Text-event_0c is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x0c, $!text;
+  }
+}
+
+class MIDI::Event::Text-event_0d is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x0d, $!text;
+  }
+}
+
+class MIDI::Event::Text-event_0e is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x0e, $!text;
+  }
+}
+
+class MIDI::Event::Text-event_0f is MIDI::Event {
+  has $.time;
+  has $.text;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    self.encode-text-event: 0x0f, $!text;
+  }
+}
+
+class MIDI::Event::End-track is MIDI::Event {
+  has $.time;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    Buf.new(0xff, 0x2f, 0x00);
+  }
+}
+
+class MIDI::Event::Set-tempo is MIDI::Event {
+  has $.time;
+  has $.tempo; # microseconds/quarter note
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    pack 'CCwa*',
+         0xff,
+	 0x51,
+	 3,
+	 pack('N', $!tempo).subbuf(1, 3);
+  }
+}
+
+class MIDI::Event::Smpte-offset is MIDI::Event {
+  has $.time;
+  has $.hours;
+  has $.minutes;
+  has $.seconds;
+  has $.fr;
+  has $.ff;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    pack 'CCWCCCCC',
+         0xff,
+	 0x51,
+	 5,
+	 $!hours,
+	 $!minutes,
+	 $!seconds,
+	 $!fr,
+	 $!ff;
+  }
+}
+
+class MIDI::Event::Time-signature is MIDI::Event {
+  has $.time;
+  has $.numerator;
+  has $.denominator;
+  has $.ticks;
+  has $.quarter-notes;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    pack 'CCWCCCC',
+         0xff,
+	 0x58,
+	 4,
+	 $!numerator,
+	 $!denominator,
+	 $!ticks,
+	 $!quarter-notes;
+  }
+}
+
+class MIDI::Event::Key-signature is MIDI::Event {
+  has $.time;
+  has $.sharps;
+  has $.major-minor;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    pack 'CCwcC',
+         0xff,
+	 0x59,
+	 2,
+	 $!sharps,
+	 $!major-minor;
+  }
+}
+
+class MIDI::Event::Sequencer-specific is MIDI::Event {
+  has $.time;
+  has $.data;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    pack 'CCwa*',
+         0xff,
+	 0x7f,
+	 $!data.bytes,
+	 $!data; # yes -- twice
+  }
+}
+
+class MIDI::Event::sysex-f0 is MIDI::Event {
+  has $.time;
+  has $.data;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    pack 'Cwa*',
+        0xf0,
+	$!data.bytes,
+	$!data;
+  }
+}
+ 
+class MIDI::Event::sysex-f7 is MIDI::Event {
+  has $.time;
+  has $.data;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    pack 'Cwa*',
+        0xf7,
+	$!data.bytes,
+	$!data;
+  }
+}
+
+class MIDI::Event::Song-position is MIDI::Event {
+  has $.time;
+  has $.beats;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    Buf.new(0xf2) ~ self.write-u14-bit($!beats);
+  }
+}
+
+class MIDI::Event::Song-select is MIDI::Event {
+  has $.time;
+  has $.song-number;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    pack 'CC',
+        0xf1,
+	$!song-number
+  }
+}
+
+class MIDI::Event::Tune-request is MIDI::Event {
+  has $.time;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    Buf.new(0xf6);
+  }
+}
+
+class MIDI::Event::Raw is MIDI::Event {
+  has $.time;
+  has $.command;
+  has $.data;
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+    pack 'CCwa*',
+      0xff,
+      $!command,
+      $!data.length,
+      $!data;
+  }
+}
 

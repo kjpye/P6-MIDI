@@ -2,7 +2,7 @@ unit class MIDI::Opus;
 
 use v6;
 
-use PackUnpack;
+use P5pack;
 
 my $Debug = 0;
 my $VERSION = 0.84;
@@ -334,11 +334,7 @@ sub pack-N($val) {
 
 ###########################################################################
 method write-to-handle($fh, *%options) {
-<<<<<<< HEAD
   # Call as $opus.write-to-handle( *FH{IO}, ...options... );
-=======
-  # Call as $opus->write_to_handle( *FH{IO}, { ...options... });
->>>>>>> origin/master
 
   my $tracks = +@!tracks;
   warn "Writing out an opus with no tracks!\n" if $tracks == 0;
@@ -365,12 +361,8 @@ method write-to-handle($fh, *%options) {
     my $data = '';
     my $type = (($track.type // '') ~ "\x00\x00\x00\x00").encode.subbuf: 0, 4;
       # Force it to be 4 chars long.
-<<<<<<< HEAD
     $fh.write: $type;
     $data =  $track.encode(|%options);
-=======
-    $data =  $track.encode(%options);
->>>>>>> origin/master
       # $track.encode will handle the issue of whether
       #  to use the track's data or its events
     $fh.write: pack("N", $data.bytes);
