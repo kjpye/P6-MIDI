@@ -1,4 +1,4 @@
-unit class MIDI::Score;
+class MIDI::Score {
 
 use v6;
 
@@ -336,7 +336,7 @@ method events-to-score(*%options) {
 
   my $time = 0;
   if %options<no_note_abstraction> {
-    my $score = MIDI::Event::copy_structure(@!events);
+    my $score = MIDI::Event::copy_structure(@!notes);
     my $new-time;
     for $score -> $event {
       # print join(' ', $event), "\n";
@@ -350,12 +350,12 @@ method events-to-score(*%options) {
     my @score =
       @!notes.map:
       {
-	if !ref($_) {
-	  ();
-	} else {
+#	if !ref($_) {
+#	  ();
+#	} else {
 # 0.82: the following must be declared local
 	  temp $_; # copy.
-	  $_.time = ($time += $_.time) if ref($_);
+#	  $_.time = ($time += $_.time) if ref($_);
 
 	  if $_ ~~ (MIDI::Event::Note_off)
 	     or ($_ ~~ (MIDI::Event::Note-on) &&
@@ -370,22 +370,23 @@ method events-to-score(*%options) {
 		  unless @(%note{pack 'CC', $_.channel, $_.note}) {%note{pack 'CC', $_.channel, $_.note}:delete;}
 	      }
 	    (); # Erase this event.
-	  } elsif $!type eq 'note_on' {
+	  } elsif $! ~~ (midi::Event::Note-on) {
 	    # Start of a note
 	    $_ = [@$_];
 
 	    push(@(%note{ pack 'CC', $_.channel, $_.note}),$_);
-	    splice(@$_, 2, 0, -$time);
-	    $!type = 'note';
+#	    splice(@$_, 2, 0, -$time);
 	    # ('note', Starttime, Duration, Channel, Note, Veloc)
-	    self;
+	    MIDI::Event::Note.new(time => $_.time, duration => -$time, channel => $_.channel,
+				  note => $_.note,  velocity => $_.velocity
+				 );
 	  } else {
 	    $_;
 	  }
-	}
+#	}
       };
 
-    #print "notes remaining on stack: ", scalar(values %note), "\n"
+    #print "notes remaining on stack: ", %note.elems, "\n"
     #  if values %note;
 # 0.82: clean up pending events gracefully
     for %note.keys -> $k {
@@ -393,8 +394,8 @@ method events-to-score(*%options) {
 	    $one.time += $time;
 	}
     }
-    return(\@score, $time) if wantarray;
-    return \@score;
+#    return(@score, $time) if wantarray;
+    return @score;
   }
 }
 ###########################################################################
@@ -411,7 +412,7 @@ a count of the number of ticks that structure takes to play
 sub score_r_time {
   # returns the duration of the score you pass a reference to
   my $score = $_[0];
-  croak "arg 1 of MIDI::Score::score_r_time isn't a ref" unless ref $score;
+#  fail "arg 1 of MIDI::Score::score_r_time isn't a ref" unless ref $score;
   my $track_time = 0;
   for @$score -> $event {
     next unless @$event;
@@ -434,7 +435,7 @@ the event structure you pass a reference to.
 
 sub dump_score {
   my $score = $_[0];
-  print "\@notes = (   # ", scalar(@$score), " notes...\n";
+  print "\@notes = (   # ", @$score.elems, " notes...\n";
   for @$score -> $note {
     print " [", &MIDI::_dump_quote(@$note), "],\n" if @$note;
   }
@@ -459,7 +460,6 @@ responsiblity of the caller to deal with them.
 
 =end pod
 
-# new in 0.82!
 sub quantize($score, *%options) {
   my $grid = %options<grid>;
   if $grid < 1 {fail "bad grid $grid in MIDI::Score::quantize!"; $grid = 1;}
@@ -469,13 +469,13 @@ sub quantize($score, *%options) {
   for @($score) -> $event {
       my $n_event = [];
       @($n_event) = @($event);
-      $n_event_r->[1] = $grid * int(($n_event_r->[1] / $grid) + 0.5);
-      if ($qd && $n_event_r->[0] eq 'note') {
-	  $n_event_r->[2] = $grid * int(($n_event_r->[2] / $grid) + 0.5);
+      $n_event[1] = $grid * int(($n_event[1] / $grid) + 0.5);
+      if ($qd && $n_event[0] eq 'note') {
+	  $n_event[2] = $grid * int(($n_event[2] / $grid) + 0.5);
       }
-      push @{$new_score_r}, $n_event_r;
+      push @($new_score), $n_event;
   }
-  $new_score_r;
+  $new_score;
 }
 
 ###########################################################################
@@ -503,37 +503,35 @@ duration of E is clipped to just the * portion above
 =end pod
 
 # new in 0.83! author DC
-sub skyline {
-    my $score_r = $_[0];
-    my $options_r = ref($_[1]) eq 'HASH' ? $_[1] : {};
-    my $clip = $options_r->{clip};
-    my $new_score_r = [];
-    my %events = ();
-    my $n_event_r;
+sub skyline($score, *%options) {
+    my $clip = %options<clip>;
+    my $new_score = @();
+    my %events = %();
+    my $n_event;
     my ($typeidx,$stidx,$duridx,$pitchidx) = (0,1,2,4); # create some nicer event indices
 # gather all note events into an onset-index hash.  push all others directly into the new score.
-    foreach my $event_r (@{$score_r}) {
-	if ($event_r->[$typeidx] eq "note") {push @{$events{$event_r->[$stidx]}}, $event_r;}
-	else {push @{$new_score_r}, $event_r;}
+    for @($score) -> $event {
+	if ($event[$typeidx] eq "note") {push @(%events{$event[$stidx]}), $event;}
+	else {push @($new_score), $event;}
     }
     my $loff = 0; my $lev = [];
 # iterate over increasing onsets
-    foreach my $onset (sort {$a<=>$b} (keys %events)) {
+    for %events.keys.sort: {$^a <=> $^b} -> $onset {
         # find highest pitch at this onset
-        my $ev = (sort {$b->[$pitchidx] <=> $a->[$pitchidx]} (@{$events{$onset}}))[0];
-	if ($onset >= ($lev->[$stidx] + $lev->[$duridx])) {
-	    push @{$new_score_r}, $ev;
+        my $ev = {@(%events{$onset}).sort: {$^b[$pitchidx] <=> $^a[$pitchidx]}}[0] ;
+	if $onset >= ($lev[$stidx] + $lev[$duridx]) {
+	    @($new_score).push: $ev;
 	    $lev = $ev;
 	}
 	elsif ($clip) {
-	    if ($ev->[$pitchidx] > $lev->[$pitchidx]) {
-		$lev->[$duridx] = $ev->[$stidx] - $lev->[$stidx];
-		push @{$new_score_r}, $ev;
+	    if $ev[$pitchidx] > $lev[$pitchidx] {
+		$lev[$duridx] = $ev[$stidx] - $lev[$stidx];
+		@($new_score).push: $ev;
 		$lev = $ev;
 	    }
 	}
     }
-    $new_score_r;
+    $new_score;
 }
 
 ###########################################################################
@@ -554,3 +552,5 @@ Sean M. Burke C<sburke@cpan.org> (until 2010)
 Darrell Conklin C<conklin@cpan.org> (from 2010)
 
 =end pod
+
+}

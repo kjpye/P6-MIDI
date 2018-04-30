@@ -1009,7 +1009,8 @@ method encode($use-running-status, $last-status is rw --> Buf) {
 method encode-text-event($cmd, $text) {
   pack 'CCwa*',
     0xff,
-    $text.length,
+    $cmd,
+    $text.chars,
     $text;
 }
 
@@ -1034,6 +1035,16 @@ class MIDI::Event::Note-off is MIDI::Event {
                                       $!velocity +& 0x7f)
     ;
   }
+}
+
+class MIDI::Event::Note is MIDI::Event {
+    has $.time;
+    has $.duration;
+    has $.channel;
+    has $.note-number;
+    has $.volume;
+
+    # no need for an encode method -- it's not a valid midi message
 }
 
 class MIDI::Event::Note-on is MIDI::Event {
@@ -1308,11 +1319,13 @@ class MIDI::Event::Set-tempo is MIDI::Event {
   has $.tempo; # microseconds/quarter note
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCwa*',
+    pack 'CCwCCC',
          0xff,
 	 0x51,
 	 3,
-	 pack('N', $!tempo).subbuf(1, 3);
+         ($!tempo +> 16) +& 0xff,
+	 ($!tempo +>  8) +& 0xff,
+	 ($!tempo      ) +& 0xff;
   }
 }
 

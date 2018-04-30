@@ -4,6 +4,21 @@ use v6;
 
 use MIDI;
 
+my %package;
+my %volume;
+my @note;
+my %note;
+my %length;
+
+has $.time     =  0;
+has $.duration = 96;
+has $.channel  =  0;
+has $.octave   =  5;
+has $.tempo    = 96;
+has $.volume   = 64;
+has @.cookies;
+has @.events;
+
 #use vars qw(
 #            %package
 #            %Volume @Note %Note %Length);
@@ -39,7 +54,7 @@ my @EXPORT = <
  song_position song_select tune_request raw_data
 >;     # _test_proc
 
-my %package = ();
+%package = ();
 
 #`[
   hash of package-scores: accessible as $MIDI::Simple::package{"packagename"}
@@ -103,7 +118,7 @@ before .700 (but that was a I<looong> time ago).
 
 =end pod
 
-my %Volume = ( # I've simply made up these values from more or less nowhere.
+%volume = ( # I've simply made up these values from more or less nowhere.
 # You no like?  Change 'em at runtime, or just use "v64" or whatever,
 # to specify the volume as a number 1-127.
  'ppp' =>   1,  # pianississimo
@@ -118,7 +133,7 @@ my %Volume = ( # I've simply made up these values from more or less nowhere.
  'fff' => 127,  # fortississimo
 );
 
-my %Length = ( # this list should be rather uncontroversial.
+%length = ( # this list should be rather uncontroversial.
  # The numbers here are multiples of a quarter note's length
  # The abbreviations are:
  #    qn for "quarter note",
@@ -143,7 +158,7 @@ my %Length = ( # this list should be rather uncontroversial.
 
 );
 
-my %Note = (
+%note = (
  'C'  =>  0,
  'Cs' =>  1, 'Df' =>  1, 'Csharp' =>  1, 'Dflat' =>  1,
  'D'  =>  2,
@@ -158,7 +173,7 @@ my %Note = (
  'B'  => 11,
 );
 
-my @Note = <C Df  D Ef  E   F Gf  G Af  A Bf  B>;
+@note = <C Df  D Ef  E   F Gf  G Af  A Bf  B>;
 # These are for converting note numbers to names, via, e.g., $Note[2]
 # These must be a subset of the keys to %Note.
 # You may choose to have these be your /favorite/ names for the particular
@@ -291,29 +306,27 @@ For n/r/noop", below.
 
 =end pod
 
-sub n(*@args) { # a note
-  my ($am_method, $it) = (@args[0].WHAT eq "(MIDI::Simple)")
-    ?? (1, shift @args)
-    !! (0, (%package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  MIDI::Simple::parse-options($it, @args);
-  for @($it{"Notes"})${note-val} {
+method n(*@args) { # a note
+  my $new-notes = self.parse-options(@args);
+  for $new-notes -> $note {
     # which should presumably not be a null list
-    unless $note_val ~~ /^\d+$/ {
-      note "note value \"$note_val\" from Notes is non-numeric!  Skipping.";
+    unless $note ~~ /^\d+$/ {
+      note "note value \"$note\" from Notes is non-numeric!  Skipping.";
       next;
     }
-    @{$it->{"Score"}}.push:
-      ['note',
-       ${$it->{"Time"}}.int,
-       ${$it->{"Duration"}},int,
-       ${$it->{"Channel"}}.int,
-       $note_val.int,
-       ${$it->{"Volume"}}.int,
-      ];
+    @!events.push:
+    MIDI::Event::Note.new(
+	time => $!time.int,
+	duration => $!duration.int,
+	channel => $!channel.int,
+	note-number => $note.int,
+	volume => $!volume
+    );
   }
-  ${$it->{"Time"}} += ${$it->{"Duration"}};
+  $!time += $!duration;
   return;
 }
+
 ###########################################################################
 
 =begin pod
@@ -326,12 +339,9 @@ playing.)
 
 =end pod
 
-sub r { # a rest
-  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
-    ? (1, shift @_)
-    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  &MIDI::Simple::parse-options($it, @_);
-  ${$it->{"Time"}} += ${$it->{"Duration"}};
+method r(*@args) { # a rest
+  self.parse-options(@args);
+  $!time += $!duration;
   return;
 }
 ###########################################################################
@@ -345,16 +355,13 @@ other state variables, i.e.: Channel, Duration, Octave, Volume, Notes.
 
 =end pod
 
-sub noop { # no operation
-  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
-    ? (1, shift @_)
-    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  &MIDI::Simple::parse-options($it, @_);
-  return;
+method noop(*@args) { # no operation
+  self.parse-options(@args);
 }
 
 #--------------------------------------------------------------------------
 
+=begin pod
 =back
 
 =head2 Parameters for n/r/noop
@@ -497,7 +504,7 @@ The current acceptable values are:
  B                                 (maps to the value 11)
 
 (Note that these are based on the English names for these notes.  If
-you prefer to add values to accomodate other strings denoting notes in
+you prefer to add values to accommodate other strings denoting notes in
 the octave, you may do so by adding to the hash %MIDI::Simple::Note
 like so:
 
@@ -618,167 +625,162 @@ middle of octave 10.)
 
 =end pod
 
-sub parse-options($it, *@args) { # common parser for n/r/noop options
+method parse-options(*@args) { # common parser for n/r/noop options
   # This is the guts of the whole module.  Understand this and you'll
   #  understand everything.
-  my @new_notes = ();
-  print "options for parse-options: ", map("<$_>", @args), "\n" if $Debug > 3;
-  croak "no target for parse-options" unless ref $it;
-  foreach my $arg (@args) {
-    next unless length($arg); # sanity check
+  my @new-notes = ();
+  say "options for parse-options: ", map("<$_>", @args) if $Debug > 3;
+  for @args -> $arg {
+    next unless $arg.chars; # sanity check
 
-    if($arg      =~ m<^d(\d+)$>s) {   # numeric duration spec
-      ${$it->{"Duration"}} = $1;
-    } elsif($arg =~ m<^[vV](\d+)$>s) {   # numeric volume spec
-      croak "Volume out of range: $1" if $1 > 127;
-      ${$it->{"Volume"}} = $1;
-    } elsif($arg eq 'rest') {         # 'rest' clears the note list
-      @{$it->{"Notes"}} = ();
-    } elsif($arg =~ m<^c(\d+)$>s) {   # channel spec
-      croak "Channel out of range: $1" if $1 > 15;
-      ${$it->{"Channel"}} = $1;
-    } elsif($arg =~ m<^o(\d+)$>s) {   # absolute octave spec
-      croak "Octave out of range: \"$1\" in \"$arg\"" if $1 > 10;
-      ${$it->{"Octave"}} = int($1);
-
-    } elsif($arg =~ m<^n?(\d+)$>s) {  # numeric note spec
+    if $arg      ~~ m<^ d (\d+) $> {   # numeric duration spec
+      $!duration = $1;
+    } elsif $arg ~~ m<^ [vV] (\d+) $> {   # numeric volume spec
+      fail "Volume out of range: $1" if $1 > 127;
+      $!volume = $1;
+    } elsif $arg eq 'rest' {         # 'rest' clears the note list
+	@new-notes = ();
+    } elsif $arg ~~ m<^ c (\d+) $> {   # channel spec
+      fail "Channel out of range: $1" if $1 > 15;
+      $!channel = $1;
+    } elsif $arg ~~ m<^ o (\d+) $> {   # absolute octave spec
+      fail "Octave out of range: \"$1\" in \"$arg\"" if $1 > 10;
+      $!octave = int($1);
+    } elsif $arg ~~ m<^ n? (\d+) $> {  # numeric note spec
       # note that the "n" is optional
-      croak "Note out of range: $1" if $1 > 127;
-      push @new_notes, $1;
-      ${$it->{"Octave"}} = int($1 / 12);
+      fail "Note out of range: $1" if $1 > 127;
+      @new-notes.push: $1;
+      $!octave = ($1 / 12).Int;
 
     # The more complex ones follow...
 
-    } elsif( exists( $MIDI::Simple::Volume{$arg} )) {   # volume spec
-      ${$it->{"Volume"}} = $MIDI::Simple::Volume{$arg};
+    } elsif %volume{$arg}.exists {   # volume spec
+      $!volume = %volume{$arg};
 
-    } elsif( exists( $MIDI::Simple::Length{$arg} )) {   # length spec
-      ${$it->{"Duration"}} =
-         ${$it->{"Tempo"}} * $MIDI::Simple::Length{$arg};
+    } elsif %length{$arg}.exists {   # length spec
+      $!duration = $!tempo * %length{$arg};
 
-    } elsif($arg =~ m<^o_d(\d+)$>s) {    # rel (down) octave spec
-      ${$it->{"Octave"}} -= int($1);
-      ${$it->{"Octave"}} = 0 if ${$it->{"Octave"}} < 0;
-      ${$it->{"Octave"}} = 10 if ${$it->{"Octave"}} > 10;
+    } elsif $arg ~~ m<^ o_d (\d+) $> {    # rel (down) octave spec
+      $!octave -= $1.Int;
+      $!octave =  0 if $!octave <  0;
+      $!octave = 10 if $!octave > 10;
 
-    } elsif($arg =~ m<^o_u(\d+)$>s) {    # rel (up) octave spec
-      ${$it->{"Octave"}} += int($1);
-      ${$it->{"Octave"}} = 0 if ${$it->{"Octave"}} < 0;
-      ${$it->{"Octave"}} = 10 if ${$it->{"Octave"}} > 10;
+    } elsif $arg ~~ m<^ o_u (\d+) $> {    # rel (up) octave spec
+      $!octave += $1.Int;
+      $!octave =  0 if $!octave <  0;
+      $!octave = 10 if $!octave > 10;
 
-    } elsif( $arg =~ m<^([A-Za-z\x80-\xFF]+)((?:_[du])?\d+)?$>s
-             and exists( $MIDI::Simple::Note{$1})
-           )
+    } elsif $arg ~~ m<^ ( <[A..Z a..z \x80..\xFF]>+ ) (_<[du]>)? (\d+)? $> # FIXME
+             and %note{$1}.exists
     {
-      my $note = $MIDI::Simple::Note{$1};
-      my $octave = ${$it->{"Octave"}};
+      my $note = %note{$1};
+      my $octave = $!octave;
       my $o_spec = $2;
-      print "note<$1> => <$note> ; octave_spec<$2> Octave<$octave>\n"
+      say "note<$1> => <$note> ; octave_spec<$2> Octave<$octave>"
         if $Debug;
 
-      if(! (defined($o_spec) && length($o_spec))){
+      if ! ($o_spec.defined && $o_spec) {
          # it's a bare note like "C" or "Bflat"
         # noop
-      } elsif ($o_spec =~ m<^(\d+)$>s) {      # absolute! (alphanumeric)
-        ${$it->{"Octave"}} = $octave = $1;
-        croak "Octave out of range: \"$1\" in \"$arg\"" if $1 > 10;
-      } elsif ($o_spec =~ m<^_d(\d+)$>s) {    # relative with _dN
+      } elsif $o_spec ~~ m<^ (\d+) $> {      # absolute! (alphanumeric)
+        $!octave = $octave = $1;
+        fail "Octave out of range: \"$1\" in \"$arg\"" if $1 > 10;
+      } elsif $o_spec ~~ m<^ _d (\d+) $> {    # relative with _dN
         $octave -= $1;
         $octave = 0 if $octave < 0;
-      } elsif ($o_spec =~ m<^_u(\d+)$>s) {    # relative with _uN
+      } elsif $o_spec ~~ m<^ _u (\d+) $> {    # relative with _uN
         $octave += $1;
         $octave = 10 if $octave > 10;
       } else {
         die "Unexpected error 5176123";
       }
 
-      my $note_value = int($note + $octave * 12);
+      my $note_value = ($note + $octave * 12).Int;
 
       # Enforce sanity...
-      while($note_value < 0)   { $note_value += 12 } # bump up an octave
-      while($note_value > 127) { $note_value -= 12 } # drop down an octave
-
-      push @new_notes, $note_value;
+      while $note_value < 0   { $note_value += 12 } # bump up an octave
+      while $note_value > 127 { $note_value -= 12 } # drop down an octave
         # 12 = number of MIDI notes in an octive
 
+      @new-notes.push: $note_value;
+
     } else {
-      croak "Unknown note/rest option: \"$arg\"" if length($arg);
+      fail "Unknown note/rest option: \"$arg\"" if $arg.length;
     }
   }
-  @{$it->{"Notes"}} = @new_notes if @new_notes; # otherwise inherit last list
-
-  return;
+  @new-notes;
 }
 
 # Internal-use proc: create a package object for the package named.
 sub _package_object {
-  my $package = $_[0] || die "no package!!!";
-  no strict;
-  print "Linking to package $package\n" if $Debug;
-  $package{$package} = bless {
-    # note that these are all refs, not values
-    "Score" => \@{"$package\::Score"},
-    "Time" => \${"$package\::Time"},
-    "Duration" => \${"$package\::Duration"},
-    "Channel" => \${"$package\::Channel"},
-    "Octave" => \${"$package\::Octave"},
-    "Tempo" => \${"$package\::Tempo"},
-    "Notes" => \@{"$package\::Notes"},
-    "Volume" => \${"$package\::Volume"},
-    "Cookies" => \%{"$package\::Cookies"},
-  };
-
-  &_init_score($package{$package});
-  return $package{$package};
+#  my $package = $_[0] || die "no package!!!";
+#  no strict;
+#  print "Linking to package $package\n" if $Debug;
+#  $package{$package} = bless {
+#    # note that these are all refs, not values
+#    "Score" => \@{"$package\::Score"},
+#    "Time" => \${"$package\::Time"},
+#    "Duration" => \${"$package\::Duration"},
+#    "Channel" => \${"$package\::Channel"},
+#    "Octave" => \${"$package\::Octave"},
+#    "Tempo" => \${"$package\::Tempo"},
+#    "Notes" => \@{"$package\::Notes"},
+#    "Volume" => \${"$package\::Volume"},
+#    "Cookies" => \%{"$package\::Cookies"},
+#  };
+#
+#  &_init_score($package{$package});
+#  return $package{$package};
 }
 
 ###########################################################################
 
-sub new_score {
+method new_score {
   my $p1 = $_[0];
   my $it;
 
-  if(
-    defined($p1) &&
-    ($p1 eq 'MIDI::Simple'  or  ref($p1) eq 'MIDI::Simple')
-  ) { # I'm a method!
-    print "~ new_score as a MIDI::Simple constructor\n" if $Debug;
-    $it = bless {};
-    &_init_score($it);
-  } else { # I'm a proc!
-    my $cpackage = (caller)[0];
-    print "~ new_score as a proc for package $cpackage\n" if $Debug;
-    if( ref($package{ $cpackage }) ) {  # Already exists in %package
-      print "~  reinitting pobj $cpackage\n" if $Debug;
-      &_init_score(  $it = $package{ $cpackage }  );
-      # no need to call _package_object
-    } else {  # Doesn't exist in %package
-      print "~  new pobj $cpackage\n" if $Debug;
-      $package{ $cpackage } = $it = &_package_object( $cpackage );
-      # no need to call _init_score
-    }
-  }
-  return $it;   # for object use, we'll be capturing this
+#  if
+#    defined($p1) &&
+#    ($p1 eq 'MIDI::Simple'  or  ref($p1) eq 'MIDI::Simple')
+#  { # I'm a method!
+#    print "~ new_score as a MIDI::Simple constructor\n" if $Debug;
+#    $it = bless {};
+#    &_init_score($it);
+#  } else { # I'm a proc!
+#    my $cpackage = (caller)[0];
+#    print "~ new_score as a proc for package $cpackage\n" if $Debug;
+#    if( ref($package{ $cpackage }) ) {  # Already exists in %package
+#      print "~  reinitting pobj $cpackage\n" if $Debug;
+#      &_init_score(  $it = $package{ $cpackage }  );
+#      # no need to call _package_object
+#    } else {  # Doesn't exist in %package
+#      print "~  new pobj $cpackage\n" if $Debug;
+#      $package{ $cpackage } = $it = &_package_object( $cpackage );
+#      # no need to call _init_score
+#    }
+#  }
+#  return $it;   # for object use, we'll be capturing this
 }
 
 sub _init_score { # Set some default initial values for the object
-  my $it = $_[0];
-  print "Initting score $it\n" if $Debug;
-  @{$it->{"Score"}} = (['text_event', 0, "$0 at " . scalar(localtime) ]);
-  ${$it->{"Time"}} = 0;
-  ${$it->{"Duration"}} = 96; # a whole note
-  ${$it->{"Channel"}} = 0;
-  ${$it->{"Octave"}} = 5;
-  ${$it->{"Tempo"}} = 96; # ticks per qn
-  @{$it->{"Notes"}} = (60); # middle C. why not.
-  ${$it->{"Volume"}} = 64; # normal
-  %{$it->{"Cookies"}} = (); # empty
-  return;
+#  my $it = $_[0];
+#  print "Initting score $it\n" if $Debug;
+#  @{$it->{"Score"}} = (['text_event', 0, "$0 at " . scalar(localtime) ]);
+#  ${$it->{"Time"}} = 0;
+#  ${$it->{"Duration"}} = 96; # a whole note
+#  ${$it->{"Channel"}} = 0;
+#  ${$it->{"Octave"}} = 5;
+#  ${$it->{"Tempo"}} = 96; # ticks per qn
+#  @{$it->{"Notes"}} = (60); # middle C. why not.
+#  ${$it->{"Volume"}} = 64; # normal
+#  %{$it->{"Cookies"}} = (); # empty
+#  return;
 }
 
 ###########################################################################
 ###########################################################################
 
+=begin pod
 =head2 ATTRIBUTE METHODS
 
 The object attributes discussed above are readable and writeable with
@@ -800,13 +802,13 @@ read-only method that returns a reference to the attribute's value:
 To read any of the above via a R/W-method, call with no parameters,
 e.g.:
 
-  $notes = $obj->Notes;  # same as $obj->Notes()
+  $notes = $obj.Notes;  # same as $obj.Notes()
 
 The above is the read-attribute ("get") form.
 
 To set the value, call with parameters:
 
-  $obj->Notes(13,17,22);
+  $obj.Notes(13,17,22);
 
 The above is the write-attribute ("put") form.  Incidentally, when
 used in write-attribute form, the return value is the same as the
@@ -816,7 +818,7 @@ suppressed it for efficiency's sake.)
 Alternately (and much more efficiently), you can use the read-only
 reference methods to read or alter the above values;
 
-  $notes_r = $obj->Notes_r;
+  $notes = $obj.Notes;
   # to read:
   @old_notes = @$notes_r;
   # to write:
@@ -852,138 +854,139 @@ directly access the variables instead.
 #--------------------------------------------------------------------------
 # read-or-write methods
 
-sub Score (;\@) { # yes, a prototype!
-  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
-    ? (1, shift @_)
-    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  if(@_) {
-    if($am_method){
-      @{$it->{'Score'}} = @_;
-    } else {
-      @{$it->{'Score'}} = @{$_[0]}; # sneaky, huh!
-    }
-    return; # special case -- return nothing if this is a PUT
-  } else {
-    return @{$it->{'Score'}}; # you asked for it
-  }
-}
-
-sub Cookies {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  %{$it->{'Cookies'}} = @_ if @_;  # Better have an even number of elements!
-  return %{$it->{'Cookies'}};
-}
-
-sub Time {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  ${$it->{'Time'}} = $_[0] if @_;
-  return ${$it->{'Time'}};
-}
-
-sub Duration {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  ${$it->{'Duration'}} = $_[0] if @_;
-  return ${$it->{'Duration'}};
-}
-
-sub Channel {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  ${$it->{'Channel'}} = $_[0] if @_;
-  return ${$it->{'Channel'}};
-}
-
-sub Octave {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  ${$it->{'Octave'}} = $_[0] if @_;
-  return ${$it->{'Octave'}};
-}
-
-sub Tempo {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  ${$it->{'Tempo'}} = $_[0] if @_;
-  return ${$it->{'Tempo'}};
-}
-
-sub Notes {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  @{$it->{'Notes'}} = @_ if @_;
-  return @{$it->{'Notes'}};
-}
-
-sub Volume {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  ${$it->{'Volume'}} = $_[0] if @_;
-  return ${$it->{'Volume'}};
-}
+#sub Score (;\@) { # yes, a prototype!
+#  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
+#    ? (1, shift @_)
+#    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
+#  if(@_) {
+#    if($am_method){
+#      @{$it->{'Score'}} = @_;
+#    } else {
+#      @{$it->{'Score'}} = @{$_[0]}; # sneaky, huh!
+#    }
+#    return; # special case -- return nothing if this is a PUT
+#  } else {
+#    return @{$it->{'Score'}}; # you asked for it
+#  }
+#}
+#
+#sub Cookies {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  %{$it->{'Cookies'}} = @_ if @_;  # Better have an even number of elements!
+#  return %{$it->{'Cookies'}};
+#}
+#
+#sub Time {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  ${$it->{'Time'}} = $_[0] if @_;
+#  return ${$it->{'Time'}};
+#}
+#
+#sub Duration {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  ${$it->{'Duration'}} = $_[0] if @_;
+#  return ${$it->{'Duration'}};
+#}
+#
+#sub Channel {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  ${$it->{'Channel'}} = $_[0] if @_;
+#  return ${$it->{'Channel'}};
+#}
+#
+#sub Octave {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  ${$it->{'Octave'}} = $_[0] if @_;
+#  return ${$it->{'Octave'}};
+#}
+#
+#sub Tempo {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  ${$it->{'Tempo'}} = $_[0] if @_;
+#  return ${$it->{'Tempo'}};
+#}
+#
+#sub Notes {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  @{$it->{'Notes'}} = @_ if @_;
+#  return @{$it->{'Notes'}};
+#}
+#
+#sub Volume {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  ${$it->{'Volume'}} = $_[0] if @_;
+#  return ${$it->{'Volume'}};
+#}
 
 #-#-#-#-#-#-#-#-##-#-#-#-#-#-#-#-#-#-#-#-##-#-#-#-#-#-#-#-##-#-#-#-#-#-#-#-
 # read-only methods that return references
 
-sub Score_r {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  return $it->{'Score'};
-}
-
-sub Time_r {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  return $it->{'Time'};
-}
-
-sub Duration_r {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  return $it->{'Duration'};
-}
-
-sub Channel_r {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  return $it->{'Channel'};
-}
-
-sub Octave_r {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  return $it->{'Octave'};
-}
-
-sub Tempo_r {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  return $it->{'Tempo'};
-}
-
-sub Notes_r {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  return $it->{'Notes'};
-}
-
-sub Volume_r {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  return $it->{'Volume'};
-}
-
-sub Cookies_r {
-  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
-    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
-  return $it->{'Cookies'};
-}
+#sub Score_r {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  return $it->{'Score'};
+#}
+#
+#sub Time_r {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  return $it->{'Time'};
+#}
+#
+#sub Duration_r {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  return $it->{'Duration'};
+#}
+#
+#sub Channel_r {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  return $it->{'Channel'};
+#}
+#
+#sub Octave_r {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  return $it->{'Octave'};
+#}
+#
+#sub Tempo_r {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  return $it->{'Tempo'};
+#}
+#
+#sub Notes_r {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  return $it->{'Notes'};
+#}
+#
+#sub Volume_r {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  return $it->{'Volume'};
+#}
+#
+#sub Cookies_r {
+#  my($it) = (ref($_[0]) eq "MIDI::Simple") ? (shift @_)
+#    : ($package{ (caller)[0] } ||= &_package_object( (caller)[0] ));
+#  return $it->{'Cookies'};
+#}
 
 ###########################################################################
 ###########################################################################
 
+=begin pod
 =head2 MIDI EVENT ROUTINES
 
 These routines, below, add a MIDI event to the Score, with a
@@ -1082,62 +1085,51 @@ And here's the ones I'll be surprised if anyone ever uses:
 
 =end pod
 
-sub key_after_touch ($$$) { &_common_push('key_after_touch', @_) }
-sub control_change ($$$) { &_common_push('control_change', @_) }
-sub patch_change ($$) { &_common_push('patch_change', @_) }
-sub channel_after_touch ($$) { &_common_push('channel_after_touch', @_) }
-sub pitch_wheel_change ($$) { &_common_push('pitch_wheel_change', @_) }
-sub set_sequence_number ($) { &_common_push('set_sequence_number', @_) }
-sub text_event ($) { &_common_push('text_event', @_) }
-sub copyright_text_event ($) { &_common_push('copyright_text_event', @_) }
-sub track_name ($) { &_common_push('track_name', @_) }
-sub instrument_name ($) { &_common_push('instrument_name', @_) }
-sub lyric ($) { &_common_push('lyric', @_) }
-sub marker ($) { &_common_push('marker', @_) }
-sub cue_point ($) { &_common_push('cue_point', @_) }
-sub text_event_08 ($) { &_common_push('text_event_08', @_) }
-sub text_event_09 ($) { &_common_push('text_event_09', @_) }
-sub text_event_0a ($) { &_common_push('text_event_0a', @_) }
-sub text_event_0b ($) { &_common_push('text_event_0b', @_) }
-sub text_event_0c ($) { &_common_push('text_event_0c', @_) }
-sub text_event_0d ($) { &_common_push('text_event_0d', @_) }
-sub text_event_0e ($) { &_common_push('text_event_0e', @_) }
-sub text_event_0f ($) { &_common_push('text_event_0f', @_) }
-sub end_track ($) { &_common_push('end_track', @_) }
-sub set_tempo ($) { &_common_push('set_tempo', @_) }
-sub smpte_offset ($$$$$) { &_common_push('smpte_offset', @_) }
-sub time_signature ($$$$) { &_common_push('time_signature', @_) }
-sub key_signature ($$) { &_common_push('key_signature', @_) }
-sub sequencer_specific ($) { &_common_push('sequencer_specific', @_) }
-sub raw_meta_event ($$) { &_common_push('raw_meta_event', @_) }
-sub sysex_f0 ($) { &_common_push('sysex_f0', @_) }
-sub sysex_f7 ($) { &_common_push('sysex_f7', @_) }
-sub song_position () { &_common_push('song_position', @_) }
-sub song_select ($) { &_common_push('song_select', @_) }
-sub tune_request () { &_common_push('tune_request', @_) }
-sub raw_data ($) { &_common_push('raw_data', @_) }
-
-sub _common_push {
-  # I'm your doctor when you need / Have some coke
-  # / Want some weed / I'm Your Pusher Man
-  #print "*", map("<$_>", @_), "\n";
-  my(@p) = @_;
-  my $event = shift @p;
-  my $it;
-  if(ref($p[0]) eq "MIDI::Simple") {
-    $it = shift @p;
-  } else {
-    $it = ($package{ (caller(1))[0] } ||= &_package_object( (caller(1))[0] ) );
-  }
-  #print "**", map("<$_>", @p), " from ", ()[0], "\n";
-
-  #printf "Pushee to %s 's %s: e<%s>, t<%s>, p<%s>\n",
-  #       $it, $it->{'Score'}, $event, ${$it->{'Time'}}, join("~", @p);
-  push @{$it->{'Score'}},
-    [ $event, ${$it->{'Time'}}, @p ];
-  return;
+method key-after-touch($channel, $note-number, $aftertouch) {
+    @!events.push: MIDI::Event::Key-after-touch.new(
+	time        => $!time;
+        channel     => $channel;
+	note-number => $note-number;
+	aftertouch  => $aftertouch;
+    );
 }
 
+#sub key_after_touch ($$$) { &_common_push('key_after_touch', @_) }
+#sub control_change ($$$) { &_common_push('control_change', @_) }
+#sub patch_change ($$) { &_common_push('patch_change', @_) }
+#sub channel_after_touch ($$) { &_common_push('channel_after_touch', @_) }
+#sub pitch_wheel_change ($$) { &_common_push('pitch_wheel_change', @_) }
+#sub set_sequence_number ($) { &_common_push('set_sequence_number', @_) }
+#sub text_event ($) { &_common_push('text_event', @_) }
+#sub copyright_text_event ($) { &_common_push('copyright_text_event', @_) }
+#sub track_name ($) { &_common_push('track_name', @_) }
+#sub instrument_name ($) { &_common_push('instrument_name', @_) }
+#sub lyric ($) { &_common_push('lyric', @_) }
+#sub marker ($) { &_common_push('marker', @_) }
+#sub cue_point ($) { &_common_push('cue_point', @_) }
+#sub text_event_08 ($) { &_common_push('text_event_08', @_) }
+#sub text_event_09 ($) { &_common_push('text_event_09', @_) }
+#sub text_event_0a ($) { &_common_push('text_event_0a', @_) }
+#sub text_event_0b ($) { &_common_push('text_event_0b', @_) }
+#sub text_event_0c ($) { &_common_push('text_event_0c', @_) }
+#sub text_event_0d ($) { &_common_push('text_event_0d', @_) }
+#sub text_event_0e ($) { &_common_push('text_event_0e', @_) }
+#sub text_event_0f ($) { &_common_push('text_event_0f', @_) }
+#sub end_track ($) { &_common_push('end_track', @_) }
+#sub set_tempo ($) { &_common_push('set_tempo', @_) }
+#sub smpte_offset ($$$$$) { &_common_push('smpte_offset', @_) }
+#sub time_signature ($$$$) { &_common_push('time_signature', @_) }
+#sub key_signature ($$) { &_common_push('key_signature', @_) }
+#sub sequencer_specific ($) { &_common_push('sequencer_specific', @_) }
+#sub raw_meta_event ($$) { &_common_push('raw_meta_event', @_) }
+#sub sysex_f0 ($) { &_common_push('sysex_f0', @_) }
+#sub sysex_f7 ($) { &_common_push('sysex_f7', @_) }
+#sub song_position () { &_common_push('song_position', @_) }
+#sub song_select ($) { &_common_push('song_select', @_) }
+#sub tune_request () { &_common_push('tune_request', @_) }
+#sub raw_data ($) { &_common_push('raw_data', @_) }
+
+=begin pod
 =head2 About Tempo
 
 The chart above shows that tempo is set with a method/procedure that
@@ -1214,18 +1206,18 @@ C<time_signature> anyway, which is not necessarily a given.)
 =head2 MORE ROUTINES
 
 =over
-
 =end pod
 
-sub _test_proc {
-  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
-    ? (1, shift @_)
-    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  print " am method: $am_method\n it: $it\n params: <", join(',',@_), ">\n";
-}
+#sub _test_proc {
+#  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
+#    ? (1, shift @_)
+#    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
+#  print " am method: $am_method\n it: $it\n params: <", join(',',@_), ">\n";
+#}
 
 ###########################################################################
 
+=begin pod
 =item $opus = write_score I<filespec>
 
 =item $opus = $obj->write_score(I<filespec>)
@@ -1240,31 +1232,27 @@ filespec: C<write_score *STDOUT{IO}>.)
 
 =end pod
 
-sub write_score {
-  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
-    ? (1, shift @_)
-    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  my($out, $ticks, $score_r) =
-    ( $_[0], (${$it->{'Tempo'}} || 96), $it->{'Score'} );
+method write_score($file) {
 
-  croak "First parameter to MIDI::Simple::write_score can't be null\n"
-    unless( ref($out) || length($out) );
-  croak "Ticks can't be 0" unless $ticks;
+  fail "First parameter to MIDI::Simple::write_score can't be null\n"
+    unless $file;
+#  fail "Ticks can't be 0" unless $ticks;
 
-  carp "Writing a score with no notes!" unless @$score_r;
-  my $opus = $it->make_opus;
+  fail "Writing a score with no notes!" unless @!events;
+  my $opus = self.make_opus;
 # $opus->dump( { 'dump_tracks' => 1 } );
 
-  if(ref($out)) {
-    $opus->write_to_handle($out);
-  } else {
-    $opus->write_to_file($out);
-  }
-  return $opus; # capture it if you want it.
+#  if(ref($out)) {
+#    $opus->write_to_handle($out);
+#  } else {
+#    $opus->write_to_file($out);
+#  }
+#  return $opus; # capture it if you want it.
 }
 
 ###########################################################################
 
+=begin pod
 =item read_score I<filespec>
 
 =item $obj = MIDI::Simple->read_score('foo.mid'))
@@ -1306,60 +1294,56 @@ something like:
 
 =end pod
 
-sub read_score {
-  my $am_cons = ($_[0] eq "MIDI::Simple");
-  shift @_ if $am_cons;
-
-  my $in = $_[0];
-
-  my($track, @eventful_tracks);
-  croak "First parameter to MIDI::Simple::read_score can't be null\n"
-    unless( ref($in) || length($in) );
-
-  my $in_switch = ref($in) ? 'from_handle' : 'from_file';
-  my $opus = MIDI::Opus->new({ $in_switch => $in });
-
-  @eventful_tracks = grep( scalar(@{$_->events_r}),  $opus->tracks );
-  if(@eventful_tracks == 0) {
-    croak "Opus from $in has NO eventful tracks to consider as a score!\n";
-  } elsif (@eventful_tracks > 1) {
-    croak
-      "Opus from $in has too many (" .
-        scalar(@eventful_tracks) . ") tracks to be a score.\n";
-  } # else OK...
-  $track = $eventful_tracks[0];
-  #print scalar($track->events), " events in track\n";
-
-  # If ever you want just a single track as a score, here's how:
-  #my $score_r =  ( MIDI::Score::events_r_to_score_r($track->events_r) )[0];
-  my( $score_r, $time) = MIDI::Score::events_r_to_score_r($track->events_r);
-  #print scalar(@$score_r), " notes in score\n";
-
-  my $it;
-  if($am_cons) { # just make a new object and return it.
-    $it = MIDI::Simple->new_score;
-    $it->{'Score'} = $score_r;
-  } else { # need to fudge it back into the pobj
-    my $cpackage = (caller)[0];
-    #print "~ read_score as a proc for package $cpackage\n";
-    if( ref($package{ $cpackage }) ) {  # Already exists in %package
-      print "~  reinitting pobj $cpackage\n" if $Debug;
-      &_init_score(  $it = $package{ $cpackage }  );
-      # no need to call _package_object
-    } else {  # Doesn't exist in %package
-      print "~  new pobj $cpackage\n" if $Debug;
-      $package{ $cpackage } = $it = &_package_object( $cpackage );
-      # no need to call _init_score
-    }
-    @{$it->{'Score'}} = @$score_r;
-  }
-  ${$it->{'Tempo'}} = $opus->ticks;
-  ${$it->{'Time'}} = $time;
-
-  return $it;
+method read_score($in) {
+#  my ($track, @eventful_tracks);
+#  croak "First parameter to MIDI::Simple::read_score can't be null\n"
+#    unless $in;
+#
+#  my $in_switch = ref($in) ? 'from_handle' : 'from_file';
+#  my $opus = MIDI::Opus.new($in_switch => $in);
+#
+#  @eventful_tracks = grep( scalar(@{$_->events_r}),  $opus->tracks );
+#  if(@eventful_tracks == 0) {
+#    croak "Opus from $in has NO eventful tracks to consider as a score!\n";
+#  } elsif (@eventful_tracks > 1) {
+#    croak
+#      "Opus from $in has too many (" .
+#        scalar(@eventful_tracks) . ") tracks to be a score.\n";
+#  } # else OK...
+#  $track = $eventful_tracks[0];
+#  #print scalar($track->events), " events in track\n";
+#
+#  # If ever you want just a single track as a score, here's how:
+#  #my $score_r =  ( MIDI::Score::events_r_to_score_r($track->events_r) )[0];
+#  my( $score_r, $time) = MIDI::Score::events_r_to_score_r($track->events_r);
+#  #print scalar(@$score_r), " notes in score\n";
+#
+#  my $it;
+#  if($am_cons) { # just make a new object and return it.
+#    $it = MIDI::Simple->new_score;
+#    $it->{'Score'} = $score_r;
+#  } else { # need to fudge it back into the pobj
+#    my $cpackage = (caller)[0];
+#    #print "~ read_score as a proc for package $cpackage\n";
+#    if( ref($package{ $cpackage }) ) {  # Already exists in %package
+#      print "~  reinitting pobj $cpackage\n" if $Debug;
+#      &_init_score(  $it = $package{ $cpackage }  );
+#      # no need to call _package_object
+#    } else {  # Doesn't exist in %package
+#      print "~  new pobj $cpackage\n" if $Debug;
+#      $package{ $cpackage } = $it = &_package_object( $cpackage );
+#      # no need to call _init_score
+#    }
+#    @{$it->{'Score'}} = @$score_r;
+#  }
+#  ${$it->{'Tempo'}} = $opus->ticks;
+#  ${$it->{'Time'}} = $time;
+#
+#  return $it;
 }
 ###########################################################################
 
+=begin pod
 =item synch( LIST of coderefs )
 
 =item $obj->synch( LIST of coderefs )
@@ -1410,34 +1394,30 @@ of synch:
 
 =end pod
 
-sub synch {
-  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
-    ? (1, shift @_)
-    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-
-  my @subs = grep(ref($_) eq 'CODE', @_);
-
-  print " My subs: ", map("<$_> ", @subs), ".\n"
-   if $Debug;
-  return unless @subs;
-  # my @end_times = (); # I am the Lone Array of the Apocalypse!
-  my $orig_time = ${$it->{'Time'}};
-  my $max_time  = $orig_time;
-  foreach my $sub (@subs) {
-    printf " Before %s\:  Entry time: %s   Score items: %s\n",
-            $sub, $orig_time, scalar(@{$it->{'Score'}}) if $Debug;
-    ${$it->{'Time'}} = $orig_time; # reset Time
-
-    &{$sub}($it); # now call it
-
-    printf "   %s items ending at %s\n",
-     scalar( @{$it->{'Score'}} ), ${$it->{'Time'}} if $Debug;
-    $max_time = ${$it->{'Time'}} if ${$it->{'Time'}} > $max_time;
-  }
-  print " max end-time of subs: $max_time\n" if $Debug;
-
-  # now update and get out
-  ${$it->{'Time'}} = $max_time;
+method synch {
+#  my @subs = grep(ref($_) eq 'CODE', @_);
+#
+#  print " My subs: ", map("<$_> ", @subs), ".\n"
+#   if $Debug;
+#  return unless @subs;
+#  # my @end_times = (); # I am the Lone Array of the Apocalypse!
+#  my $orig_time = ${$it->{'Time'}};
+#  my $max_time  = $orig_time;
+#  foreach my $sub (@subs) {
+#    printf " Before %s\:  Entry time: %s   Score items: %s\n",
+#            $sub, $orig_time, scalar(@{$it->{'Score'}}) if $Debug;
+#    ${$it->{'Time'}} = $orig_time; # reset Time
+#
+#    &{$sub}($it); # now call it
+#
+#    printf "   %s items ending at %s\n",
+#     scalar( @{$it->{'Score'}} ), ${$it->{'Time'}} if $Debug;
+#    $max_time = ${$it->{'Time'}} if ${$it->{'Time'}} > $max_time;
+#  }
+#  print " max end-time of subs: $max_time\n" if $Debug;
+#
+#  # now update and get out
+#  ${$it->{'Time'}} = $max_time;
 }
 
 ########################################################################### 
@@ -1451,26 +1431,26 @@ incidentally, format 0, with one track.
 
 =end pod
 
-sub make_opus {
-  # Make a format-0 one-track MIDI out of this score.
-
-  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
-    ? (1, shift @_)
-    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-
-  my($ticks, $score_r) = (${$it->{'Tempo'}}, $it->{'Score'});
-  carp "Encoding a score with no notes!" unless @$score_r;
-  my $events_r = ( MIDI::Score::score_r_to_events_r($score_r) )[0];
-  carp "Creating a track with no events!" unless @$events_r;
-
-  my $opus =
-    MIDI::Opus->new({ 'ticks'  => $ticks,
-                      'format' => 0,
-                      'tracks' => [ MIDI::Track->new({
-                                                    'events' => $events_r
-                                                   }) ]
-                    });
-  return $opus;
+method make_opus {
+#  # Make a format-0 one-track MIDI out of this score.
+#
+#  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
+#    ? (1, shift @_)
+#    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
+#
+#  my($ticks, $score_r) = (${$it->{'Tempo'}}, $it->{'Score'});
+#  carp "Encoding a score with no notes!" unless @$score_r;
+#  my $events_r = ( MIDI::Score::score_r_to_events_r($score_r) )[0];
+#  carp "Creating a track with no events!" unless @$events_r;
+#
+#  my $opus =
+#    MIDI::Opus->new({ 'ticks'  => $ticks,
+#                      'format' => 0,
+#                      'tracks' => [ MIDI::Track->new({
+#                                                    'events' => $events_r
+#                                                   }) ]
+#                    });
+#  return $opus;
 }
 
 ###########################################################################
@@ -1491,11 +1471,8 @@ purposes.
 
 =end pod
 
-sub dump_score {
-  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
-    ? (1, shift @_)
-    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  return &MIDI::Score::dump_score( $it->{'Score'} );
+method dump_score {
+#  return &MIDI::Score::dump_score( $!score );
 }
 
 ###########################################################################
@@ -1527,41 +1504,41 @@ unaltered.
 
 =end pod
 
-sub interval { # apply an interval to a list of notes.
-  my(@out);
-  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
-    ? (1, shift @_)
-    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  my($interval_r, @notes) = @_;
-
-  croak "first argument to &MIDI::Simple::interval must be a listref\n"
-   unless ref($interval_r);
-  # or a valid key into a hash %Interval?
-
-  foreach my $note (@notes) {
-    my(@them, @status, $a_flag, $note_number);
-    @status = &is_note_spec($note);
-    unless(@status) { # not a note spec
-      push @out, $note;
-    }
-
-    ($a_flag, $note_number) = @status;
-    @them = map { $note_number + $_ } @$interval_r;
-
-    if($a_flag) { # If based on an absolute note spec.
-      if($note =~ m<^\d+$>s) {   # "12"
-        # no-op -- leave as is
-      } elsif ($note =~ m<^n\d+$>s) { # "n12"
-        @them = map("n$_", @them);
-      } else {                        # "C4"
-        @them = map(&number_to_absolute($_), @them);
-      }
-    } else { # If based on a relative note spec.
-      @them = map(&number_to_relative($_), @them);
-    }
-    push @out, @them;
-  }
-  return @out;
+method interval { # apply an interval to a list of notes.
+#  my (@out);
+#  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
+#    ? (1, shift @_)
+#    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
+#  my($interval_r, @notes) = @_;
+#
+#  croak "first argument to &MIDI::Simple::interval must be a listref\n"
+#   unless ref($interval_r);
+#  # or a valid key into a hash %Interval?
+#
+#  foreach my $note (@notes) {
+#    my(@them, @status, $a_flag, $note_number);
+#    @status = &is_note_spec($note);
+#    unless(@status) { # not a note spec
+#      push @out, $note;
+#    }
+#
+#    ($a_flag, $note_number) = @status;
+#    @them = map { $note_number + $_ } @$interval_r;
+#
+#    if($a_flag) { # If based on an absolute note spec.
+#      if($note =~ m<^\d+$>s) {   # "12"
+#        # no-op -- leave as is
+#      } elsif ($note =~ m<^n\d+$>s) { # "n12"
+#        @them = map("n$_", @them);
+#      } else {                        # "C4"
+#        @them = map(&number_to_absolute($_), @them);
+#      }
+#    } else { # If based on a relative note spec.
+#      @them = map(&number_to_relative($_), @them);
+#    }
+#    push @out, @them;
+#  }
+#  return @out;
 }
 #--------------------------------------------------------------------------
 
@@ -1657,41 +1634,39 @@ C<note_map>, like C<map>, can seem confusing to beginning programmers
 
 =end pod
 
-sub note_map (&@) { # map a function to a list of notes
-  my($sub, @notes) = @_;
+sub note_map ($sub, @notes) { # map a function to a list of notes
   return() unless @notes;
 
-  return
-    map {
-      # For each input note...
-      my $note = $_;
-      my @status = &is_note_spec($note);
-      if(@status) {
-        my($a_flag, $note_number) = @status;
-        my $orig_note = $note;  # Just in case BLOCK changes it!
-        my $orig_a_flag = $a_flag;  # Ditto!
-        my @them = map { &{$sub}($note_number, $a_flag, $note ) }
-                       $note_number;
-
-        if($orig_a_flag) { # If based on an absolute note spec.
-          # try to duplicate the original format
-          if($orig_note =~ m<^\d+$>s) {   # "12"
-            # no-op -- leave as is
-          } elsif ($orig_note =~ m<^n\d+$>s) { # "n12"
-            @them = map("n$_", @them);
-          } else {                        # "C4"
-            @them = map(&number_to_absolute($_), @them);
-          }
-        } else { # If based on a relative note spec.
-          @them = map(&number_to_relative($_), @them);
-        }
-        @them;
-      } else { # it wasn't a real notespec
-        $note;
-      }
-    }
-  @notes
-  ;
+#  return
+#    map {
+#      # For each input note...
+#      my $note = $_;
+#      my @status = &is_note_spec($note);
+#      if @status {
+#        my ($a_flag, $note_number) = @status;
+#        my $orig_note = $note;  # Just in case BLOCK changes it!
+#        my $orig_a_flag = $a_flag;  # Ditto!
+#        my @them = $note_number.map { &{$sub}($note_number, $a_flag, $note ) };
+#
+#        if $orig_a_flag { # If based on an absolute note spec.
+#          # try to duplicate the original format
+#          if $orig_note ~~ m<^\d+$> {   # "12"
+#            # no-op -- leave as is
+#          } elsif $orig_note ~~ m<^n\d+$> { # "n12"
+#            @them = map("n$_", @them);
+#          } else {                        # "C4"
+#            @them = map(&number_to_absolute($_), @them);
+#          }
+#        } else { # If based on a relative note spec.
+#          @them = map(&number_to_relative($_), @them);
+#        }
+#        @them;
+#      } else { # it wasn't a real notespec
+#        $note;
+#      }
+#    }
+#  @notes
+#  ;
 }
 
 ###########################################################################
@@ -1737,14 +1712,14 @@ sub number_to_relative ($) {
   my $o_spec;
   my $in = int($_[0]);
 
-  if($in < 0) { # Negative, so 'octave(s) down'
-    $o_spec = '_d' . (1 + abs(int(($in + 1) / 12)));  # Crufty, but it works.
-  } elsif($in < 12) {  # so 'same octave'
+  if $in < 0 { # Negative, so 'octave(s) down'
+    $o_spec = '_d' ~ (1 + abs(int(($in + 1) / 12)));  # Crufty, but it works.
+  } elsif $in < 12 {  # so 'same octave'
     $o_spec = '';
   } else {  # Positive, greater than 12, so 'N octave(s) up'
-    $o_spec = '_u' . int($in / 12);
+    $o_spec = '_u' ~ int($in / 12);
   }
-  return( $MIDI::Simple::Note[ $in % 12 ] . $o_spec );
+  return( $MIDI::Simple::Note[ $in % 12 ] ~ $o_spec );
 }
 
 ###########################################################################
@@ -1777,8 +1752,8 @@ Example usage:
 sub is_note_spec ($) {
   # if false, return()
   # if true,  return(absoluteness_flag, $note_number)
-  my($in, @ret) = ($_[0]);
-  return() unless length $in;
+  my ($in, @ret) = ($_[0]);
+  return unless $in.elems;
   @ret = &is_absolute_note_spec($in);  return(1, @ret) if @ret;
   @ret = &is_relative_note_spec($in);  return(0, @ret) if @ret;
   return();
@@ -1836,23 +1811,23 @@ be of use to anyone else.)
 sub is_relative_note_spec ($) {
   # if false, return()
   # if true,  return($note_number)
-  my($note_number, $octave_number, $in, @ret) = (-1, 0, $_[0]);
-  return() unless length $in;
+  my ($note_number, $octave_number, $in, @ret) = (-1, 0, $_[0]);
+  return unless $in.elems;
 
-  if($in =~ m<^([A-Za-z]+)$>s   # Cs
-     and exists( $MIDI::Simple::Note{$1} )
-  ){
+  if $in ~~ m<^(<[A..Z a..z]>+)$>   # Cs
+     and $MIDI::Simple::Note{$1}.exists
+  {
     $note_number = $MIDI::Simple::Note{$1};
-  } elsif($in =~ m<^([A-Za-z]+)_([du])(\d+)$>s   # Cs_d4, Cs_u1
-     and exists( $MIDI::Simple::Note{$1} )
-  ){
+  } elsif $in ~~ m<^(<[A..Z a.z]>+)_([du])(\d+)$>   # Cs_d4, Cs_u1
+     and $MIDI::Simple::Note{$1}.exists
+  {
     $note_number = $MIDI::Simple::Note{$1};
     $octave_number = $3;
     $octave_number *= -1  if $2 eq "d";
   } else {
     @ret = ();
   }
-  unless($note_number == -1) {
+  unless $note_number == -1 {
     @ret = ( $note_number + $octave_number * 12 );
   }
   return @ret;
@@ -1869,15 +1844,15 @@ specifications instead of relative ones.
 sub is_absolute_note_spec ($) {
   # if false, return()
   # if true,  return($note_number)
-  my($note_number, $in, @ret) = (-1, $_[0]);
-  return() unless length $in;
-  if( $in =~ /^n?(\d+)$/s ) {  # E.g.,  "29", "n38"
+  my ($note_number, $in, @ret) = (-1, $_[0]);
+  return() unless $in.elems;
+  if $in ~~ /^n?(\d+)$/ {  # E.g.,  "29", "n38"
     $note_number = 0 + $1;
-  } elsif( $in =~ /^([A-Za-z]+)(\d+)/s ) {  # E.g.,  "C3", "As4"
+  } elsif $in ~~ /^(<[A..Z a..z]>+)(\d+)/ {  # E.g.,  "C3", "As4"
     $note_number = $MIDI::Simple::Note{$1} + $2 * 12
-      if exists($MIDI::Simple::Note{$1});
+      if $MIDI::Simple::Note{$1}.exists;
   }
-  @ret = ($note_number) if( $note_number >= 0 and $note_number < 128);
+  @ret = ($note_number) if $note_number >= 0 and $note_number < 128;
   return @ret;
 }
 
@@ -1907,15 +1882,6 @@ MIDI::Simple object, what to say?  Simply,
   funkify($package_opus);
 
 =end pod
-
-sub Self { # pointless as a method -- but as a sub, useful if
-  # you want to access your current package's object.
-  # Juuuuuust in case you need it.
-  my($am_method, $it) = (ref($_[0]) eq "MIDI::Simple")
-    ? (1, shift @_)
-    : (0, ($package{ (caller)[0] } ||= &_package_object( (caller)[0] )) );
-  return $it;
-}
 
 ###########################################################################
 

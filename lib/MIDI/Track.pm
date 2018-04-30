@@ -5,8 +5,10 @@ use v6;
 my $Debug = 1;
 my $VERSION = '0.83';
 
+use MIDI::Event;
+
 has @.events;
-has $.type;
+has $.type = '';
 has $.data;
 
 =begin pod
@@ -316,13 +318,13 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
     # One way or another, tack on an 'end-track'
     if +@events { # If there are any events...
       my $last = @events[ *-1 ];
-      unless $last.type eq 'end-track' { # ...And there's no end-track already
-        if $last.type eq 'text-event' and $last.args[2] == 0 {
+      unless $last ~~ (MIDI::Event::End-track) { # ...And there's no end-track already
+        if $last ~~ (MIDI::Event::Text-event) and $last.text.chars == 0 {
 	  # 0-length text event at track-end.
 	  if %options<no-eot-magic> {
 	    # Exceptional case: don't mess with track-final
 	    # 0-length text-events; just peg on an end-track
-	    @events.push: MIDI::Event.new(type => 'end-track');
+	    @events.push: MIDI::Event::End-track.new;
 	  } else {
 	    # NORMAL CASE: replace it with an end-track, leaving the DTime
 	    $last.type('end-track');
@@ -341,10 +343,10 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
 #foreach(@events){ MIDI::Event::dump($_) }
 #print "--\n";
 
-#  my $maybe-running-status = not %options<no-running-status>;
-#  $last-status = -1;
+  my $maybe-running-status = not %options<no-running-status>;
+  $last-status = -1;
 
-  [~] @events.map: { .encode-event($last-status) };
+  [~] @events.map: { .encode($maybe-running-status, $last-status) };
 }
 
 ###########################################################################
@@ -378,6 +380,7 @@ method encode(*%options) { # encode a track object into track data (not a chunk)
   }
   return $data;
 }
+
 ###########################################################################
 
 # CURRENTLY UNDOCUMENTED -- no end-user ever needs to call this as such

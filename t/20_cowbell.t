@@ -10,20 +10,20 @@ ok 1;
 #TODO unlink $out if -e $out;
   {
    my @events = (
-     MIDI::Event.new( type => 'text-event', delta-time => 0, args => ['MORE COWBELL'.encode,]),
-     MIDI::Event.new( type => 'set-tempo', delta-time => 0, args => [450_000,]), # 1qn = .45 seconds
+     MIDI::Event::Text-event.new( time => 0, text  => 'MORE COWBELL'),
+     MIDI::Event::Set-tempo.new(  time => 0, tempo => 450_000), # 1qn = .45 seconds
    );
   
    for 1 .. 20 {
      push @events,
-       MIDI::Event.new( type => 'note-on' , delta-time => 90,  args => [9, 56, 127]),
-       MIDI::Event.new( type => 'note-off', delta-time =>  6,  args => [9, 56, 127]),
+       MIDI::Event::Note-on.new(  time => 90, channel => 9, note-number => 56, velocity => 127),
+       MIDI::Event::Note-off.new( time =>  6, channel => 9, note-number => 56, velocity => 127),
      ;
    }
    for (1..96).reverse -> $delay {
      push @events:
-       MIDI::Event.new( type => 'note-on' , delta-time =>      0,  args => [9, 56, 127]),
-       MIDI::Event.new( type => 'note-off', delta-time => $delay,  args => [9, 56, 127]),
+       MIDI::Event::Note-on.new(  time => 0,      channel => 9, note-number => 56, velocity => 127),
+       MIDI::Event::Note-off.new( time => $delay, channel => 9, note-number => 56, velocity => 127),
      ;
    }
 

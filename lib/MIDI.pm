@@ -185,7 +185,6 @@ C<%MIDI::number2patch> correponds General MIDI patch numbers
 C<%MIDI::patch2number> is the reverse.  Have a look at the source
 to see the contents of the hash.
 
-=cut
 =end pod
 
 my %number2patch = 0 .. 127 Z=> (   # The General MIDI map: patches 0 to 127
