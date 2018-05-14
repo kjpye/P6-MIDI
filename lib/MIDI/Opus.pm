@@ -2,8 +2,6 @@ unit class MIDI::Opus;
 
 use v6;
 
-use P5pack;
-
 my $Debug = 0;
 my $VERSION = 0.84;
 
@@ -80,6 +78,18 @@ undocumented, as you should access it only thru here.)
 '
 
 =end pod
+
+sub buf2N($buffer) {
+  my $val = ($buffer[0] +< 24) +|
+            ($buffer[1] +< 16) +|
+            ($buffer[2] +<  8) +|
+             $buffer[3];
+}
+
+sub buf2n($buffer) {
+  my $val = ($buffer[0] +< 8) +|
+             $buffer[1];
+}
 
 has $!from-file;
 has $!from-handle;
@@ -365,7 +375,7 @@ method write-to-handle($fh, *%options) {
     $data =  $track.encode(|%options);
       # $track.encode will handle the issue of whether
       #  to use the track's data or its events
-    $fh.write: pack("N", $data.bytes);
+    $fh.write: pack-N($data.bytes);
     $fh.write: $data;
   }
   return;
@@ -394,10 +404,15 @@ method read-from-handle($fh, *%options) {
 
   $file-size-left -= 14 if $file-size-left.defined;
 
-  my ($id, $length, $format, $tracks-expected, $ticks) = unpack('A4Nnnn', $in);
+  my ($id, $length, $format, $tracks-expected, $ticks); # = unpack('A4Nnnn', $in);
+  $id              =       $in.subbuf(0,  4);
+  $length          = buf2N($in.subbuf(4,  4));
+  $format          = buf2n($in.subbuf(8,  2));
+  $tracks-expected = buf2n($in.subbuf(10, 2));
+  $ticks           = buf2n($in.subbuf(12, 2));
 
   fail "data from handle $fh doesn't start with a MIDI file header"
-    unless $id eq 'MThd';
+    unless $id eq Buf.new('MThd'.comb>>.chr);
   fail "Unexpected MTHd chunk length in data from handle $fh"
     unless $length == 6;
   $!format = $format;
@@ -420,7 +435,9 @@ method read-from-handle($fh, *%options) {
     my ($header, $data);
     fail "Can't read header for track chunk \#$track-count"
       unless $header = $fh.readchars: 8, :bin;
-    my ($type, $length) = unpack('A4N', $header);
+    my ($type, $length); # = unpack('A4N', $header);
+    $type   =       $header.subbuf(0, 4);
+    $length = buf2n($header.subbuf(4, 2));
 
     if $track-size-limit.defined and $track-size-limit > $length {
       fail "Track \#$track-count\'s length ($length) would"

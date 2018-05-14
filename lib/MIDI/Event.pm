@@ -1,9 +1,62 @@
 use v6;
 
-use P5pack;
-
 my $Debug = 1;
 my $VERSION = '0.84';
+
+# Some helper functions to get data out of a buffer (to replace the original
+# pack/unpack calls.
+
+sub ber($value is copy){
+    my @bytes = $value +& 0x7f;
+    $value +>= 7;
+    while $value {
+        @bytes.push: ($value +& 0x7f) +| 0x80;
+	$value +>= 7;
+    }
+    @bytes.reverse;
+}
+
+sub getubyte($data, $pointer is rw) {
+    my $byte = $data[$pointer++];
+    $byte;
+}
+
+sub signextendbyte($byte) {
+    if $byte +& 0x80 {
+        return $byte - 256;
+    }
+    $byte;
+}
+
+sub getsbyte($data, $pointer is rw) {
+    my $byte = $data[$pointer++];
+    if $byte +& 0x80 {
+        $byte -= 256;
+    }
+    $byte;
+}
+
+sub getushort($data, $pointer is rw) { # network order
+    my $value = $data[$pointer++] +< 8;
+    $value + $data[$pointer++]     ;
+}
+
+sub getint24($data) {
+    my $value  = $data[0] +< 16;
+    $value += $data[1] +<  8;
+    $value +  $data[2]      ;
+}
+
+sub getcompint($data, $pointer is rw) {
+    my $value = 0;
+    my $byte;
+    while $byte = $data[$pointer++] +& 0x80 {
+	$value +<= 7;
+        $value +|= $byte +& 0x7f;
+    }
+    $value +<= 7;
+    $value +|= $byte +& 0x7f;
+}
 
 class MIDI::Event {
 
@@ -75,51 +128,6 @@ the combination of all the above lists.
 =back
 
 =end pod
-
-# Some helper functions to get data out of a buffer (to replace the original
-# unpack calls.
-
-sub getubyte($data, $pointer is rw) {
-    my $byte = $data[$pointer++];
-    $byte;
-}
-
-sub signextendbyte($byte) {
-    if $byte +& 0x80 {
-        return $byte - 256;
-    }
-    $byte;
-}
-
-sub getsbyte($data, $pointer is rw) {
-    my $byte = $data[$pointer++];
-    if $byte +& 0x80 {
-        $byte -= 256;
-    }
-    $byte;
-}
-
-sub getushort($data, $pointer is rw) { # network order
-    my $value = $data[$pointer++] +< 8;
-       $value + $data[$pointer++]     ;
-}
-
-sub getint24($data) {
-    my $value  = $data[0] +< 16;
-       $value += $data[1] +<  8;
-       $value +  $data[2]      ;
-}
-
-sub getcompint($data, $pointer is rw) {
-    my $value = 0;
-    my $byte;
-    while $byte = $data[$pointer++] +& 0x80 {
-	$value +<= 7;
-        $value +|= $byte +& 0x7f;
-    }
-    $value +<= 7;
-    $value +|= $byte +& 0x7f;
-}
 
 ###########################################################################
 # Some public-access lists:
@@ -1006,12 +1014,14 @@ method encode($use-running-status, $last-status is rw --> Buf) {
   (Buf);
 }
 
-method encode-text-event($cmd, $text) {
-  pack 'CCwa*',
-    0xff,
-    $cmd,
-    $text.chars,
-    $text;
+method encode-text-event($cmd, $text -> Buf) {
+    say $cmd.WHAT;
+    say $text.WHAT;
+    Buf.new(
+	0xff,
+	$cmd,
+	|ber($text.chars)
+    ) ~ $text;
 }
 
 }				# class Event
@@ -1028,11 +1038,11 @@ class MIDI::Event::Note-off is MIDI::Event {
     $last-status = $status;
     $use-old-status
       ?? # we can use running status
-        pack('wCC',  $!time,          $!note-number +& 0x7f,
-                                      $!velocity +& 0x7f)
+        Buf.new(|ber($!time),          $!note-number +& 0x7f,
+                                       $!velocity +& 0x7f)
       !! # otherwise
-        pack('wCCC', $!time, $status, $!note-number +& 0x7f,
-                                      $!velocity +& 0x7f)
+        Buf.new(|ber($!time), $status, $!note-number +& 0x7f,
+                                       $!velocity +& 0x7f)
     ;
   }
 }
@@ -1059,11 +1069,11 @@ class MIDI::Event::Note-on is MIDI::Event {
     $last-status = $status;
     $use-old-status
       ?? # we can use running status
-        pack('wCC',  $!time,          $!note-number +& 0x7f,
-                                      $!velocity +& 0x7f)
+        Buf.new(|ber($!time),          $!note-number +& 0x7f,
+                                       $!velocity +& 0x7f)
       !! # otherwise
-        pack('wCCC', $!time, $status, $!note-number +& 0x7f,
-                                      $!velocity +& 0x7f)
+        Buf.new(|ber($!time), $status, $!note-number +& 0x7f,
+                                       $!velocity +& 0x7f)
     ;
   }
 }
@@ -1080,11 +1090,11 @@ class MIDI::Event::Key-after-touch is MIDI::Event {
     $last-status = $status;
     $use-old-status
       ?? # we can use running status
-        pack('wCC',  $!time,          $!note-number +& 0x7f,
-                                      $!aftertouch +& 0x7f)
+        Buf.new(|ber($!time),          $!note-number +& 0x7f,
+                                       $!aftertouch +& 0x7f)
       !! # otherwise
-        pack('wCCC', $!time, $status, $!note-number +& 0x7f,
-                                     $!aftertouch +& 0x7f)
+        Buf.new(|ber($!time), $status, $!note-number +& 0x7f,
+                                       $!aftertouch +& 0x7f)
     ;
   }
 }
@@ -1101,11 +1111,11 @@ class MIDI::Event::Controller-change is MIDI::Event {
     $last-status = $status;
     $use-old-status
       ?? # we can use running status
-        pack('wCC',  $!time,          $!number +& 0x7f,
-                                      $!value +& 0x7f)
+        Buf.new(|ber($!time),          $!number +& 0x7f,
+                                       $!value +& 0x7f)
       !! # otherwise
-        pack('wCCC', $!time, $status, $!number +& 0x7f,
-                                      $!value +& 0x7f)
+        Buf.new(|ber($!time), $status, $!number +& 0x7f,
+                                       $!value +& 0x7f)
     ;
   }
 }
@@ -1121,11 +1131,11 @@ class MIDI::Event::Patch-change is MIDI::Event {
     $last-status = $status;
     $use-old-status
       ?? # we can use running status
-        pack('wCC',  $!time,          $!channel     +& 0x7f,
-                                      $!patchnumber +& 0x7f)
+        Buf.new(|ber($!time),          $!channel     +& 0x7f,
+                                       $!patchnumber +& 0x7f)
       !! # otherwise
-        pack('wCCC', $!time, $status, $!channel     +& 0x7f,
-                                      $!patchnumber +& 0x7f)
+        Buf.new(|ber($!time), $status, $!channel     +& 0x7f,
+                                       $!patchnumber +& 0x7f)
     ;
   }
 }
@@ -1141,11 +1151,11 @@ class MIDI::Event::Channel-after-touch is MIDI::Event {
     $last-status = $status;
     $use-old-status
       ?? # we can use running status
-        pack('wCC',  $!time,          $!channel    +& 0x7f,
-                                      $!aftertouch +& 0x7f)
+        Buf.new(|ber($!time),          $!channel    +& 0x7f,
+                                       $!aftertouch +& 0x7f)
       !! # otherwise
-        pack('wCCC', $!time, $status, $!channel    +& 0x7f,
-                                      $!aftertouch +& 0x7f)
+        Buf.new(|ber($!time), $status, $!channel    +& 0x7f,
+                                       $!aftertouch +& 0x7f)
   }
 }
 
@@ -1160,9 +1170,11 @@ class MIDI::Event::Pitch-wheel-change is MIDI::Event {
     $last-status = $status;
     $use-old-status
       ?? # we can use running status
-        pack('wCC',  $!time,          $!value + 0x2000)
+      Buf.new(|ber($!time),           ($!value + 0x2000)       +& 0x7f,
+	                             (($!value + 0x2000) +> 7) +& 0x7f)
       !! # otherwise
-        pack('wCCC', $!time, $status, $!value + 0x2000)
+      Buf.new(|ber($!time), $status,  ($!value + 0x2000)       +& 0x7f,
+	                             (($!value + 0x2000) +> 7) +& 0x7f)
   }
 }
 
@@ -1319,13 +1331,14 @@ class MIDI::Event::Set-tempo is MIDI::Event {
   has $.tempo; # microseconds/quarter note
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCwCCC',
-         0xff,
-	 0x51,
-	 3,
-         ($!tempo +> 16) +& 0xff,
-	 ($!tempo +>  8) +& 0xff,
-	 ($!tempo      ) +& 0xff;
+      Buf.new(|ber($!time),
+              0xff,
+	      0x51,
+	      3,
+              ($!tempo +> 16) +& 0xff,
+	      ($!tempo +>  8) +& 0xff,
+	      ($!tempo      ) +& 0xff;
+	     );
   }
 }
 
@@ -1338,15 +1351,16 @@ class MIDI::Event::Smpte-offset is MIDI::Event {
   has $.ff;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCWCCCCC',
-         0xff,
-	 0x51,
-	 5,
-	 $!hours,
-	 $!minutes,
-	 $!seconds,
-	 $!fr,
-	 $!ff;
+      Buf.new(
+          0xff,
+	  0x51,
+	  5,
+	  $!hours,
+	  $!minutes,
+	  $!seconds,
+	  $!fr,
+	  $!ff
+      );
   }
 }
 
@@ -1358,14 +1372,15 @@ class MIDI::Event::Time-signature is MIDI::Event {
   has $.quarter-notes;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCWCCCC',
-         0xff,
-	 0x58,
-	 4,
-	 $!numerator,
-	 $!denominator,
-	 $!ticks,
-	 $!quarter-notes;
+      Buf.new(
+          0xff,
+	  0x58,
+	  4,
+	  $!numerator,
+	  $!denominator,
+	  $!ticks,
+	  $!quarter-notes
+      );
   }
 }
 
@@ -1375,12 +1390,13 @@ class MIDI::Event::Key-signature is MIDI::Event {
   has $.major-minor;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCwcC',
-         0xff,
-	 0x59,
-	 2,
-	 $!sharps,
-	 $!major-minor;
+      Buf.new(
+          0xff,
+	  0x59,
+	  2,
+	  $!sharps,
+	  $!major-minor
+      );
   }
 }
 
@@ -1389,11 +1405,12 @@ class MIDI::Event::Sequencer-specific is MIDI::Event {
   has $.data;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCwa*',
-         0xff,
-	 0x7f,
-	 $!data.bytes,
-	 $!data; # yes -- twice
+      Buf.new(
+          0xff,
+	  0x7f,
+	  |ber($!data.bytes),
+	  $!data
+      ); # FIX
   }
 }
 
@@ -1402,10 +1419,11 @@ class MIDI::Event::sysex-f0 is MIDI::Event {
   has $.data;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'Cwa*',
-        0xf0,
-	$!data.bytes,
-	$!data;
+      Buf.new(
+          0xf0,
+	  |ber($!data.bytes),
+	  $!data
+      );
   }
 }
  
@@ -1414,10 +1432,11 @@ class MIDI::Event::sysex-f7 is MIDI::Event {
   has $.data;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'Cwa*',
-        0xf7,
-	$!data.bytes,
-	$!data;
+      Buf.new(
+          0xf7,
+	  |ber($!data.bytes),
+	  $!data
+      );
   }
 }
 
@@ -1435,9 +1454,10 @@ class MIDI::Event::Song-select is MIDI::Event {
   has $.song-number;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CC',
-        0xf1,
-	$!song-number
+      Buf.new(
+          0xf1,
+	  $!song-number
+      );
   }
 }
 
@@ -1455,11 +1475,11 @@ class MIDI::Event::Raw is MIDI::Event {
   has $.data;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-    pack 'CCwa*',
-      0xff,
-      $!command,
-      $!data.length,
-      $!data;
+      Buf.new(
+	  0xff,
+	  $!command,
+	  |ber($!data.length),
+	  $!data
+      );
   }
 }
-
