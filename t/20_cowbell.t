@@ -10,7 +10,7 @@ ok 1;
 #TODO unlink $out if -e $out;
   {
    my @events = (
-     MIDI::Event::Text-event.new( time => 0, text  => 'MORE COWBELL'),
+     MIDI::Event::Text-event.new( time => 0, text  => Buf.new('MORE COWBELL'.comb>>.ord)),
      MIDI::Event::Set-tempo.new(  time => 0, tempo => 450_000), # 1qn = .45 seconds
    );
   
@@ -32,6 +32,7 @@ ok 1;
    my $opus = MIDI::Opus.new(
    format => 0, ticks => 96, tracks => [ $cowbell-track ] );
 ok 1;
+
    $opus.write-to-file( $out );
 ok 1;
   }
@@ -43,7 +44,7 @@ ok $out.IO.s < 1100;
 
   my $o = MIDI::Opus.new( from-file => $out );
 ok 1;
-  print "# Opus: [$o]\n";
+  say "# Opus: [$o]";
 ok $o ~~ MIDI::Opus, "checking opus classitude"; # sanity
 say 'ticks: ', $o.ticks;
 ok $o.ticks, 96;
@@ -54,7 +55,7 @@ ok $o.format, 0;
 ok $o.format, 1;
 
   my @t = $o.tracks;
-  print "# Tracks: [@t]\n";
+  say "# Tracks: [@t]";
 ok +@t, 1;
 #ok +@t, 1, "checking track count"  or die;
 
