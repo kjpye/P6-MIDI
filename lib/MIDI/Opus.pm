@@ -2,7 +2,9 @@ unit class MIDI::Opus;
 
 use v6;
 
-my $Debug = 0;
+use MIDI::Track;
+
+my $Debug = 1;
 my $VERSION = 0.84;
 
 =begin pod
@@ -104,17 +106,21 @@ method TWEAK(*%args) {
 #
 #  my $this = bless( {}, $class );
 #
+note "In TWEAK: ", %args.perl;
+  $!from-file = %args<from-file>;
+note "from-file: ", $!from-file;
   print "New object in class MIDI::Opus\n" if $Debug;
 
   return self if %args<no-opus-init>; # bypasses all init.
   self.init( |%args );
 
   if $!from-file {
-    self.read-from-file;
+    self.read-from-file(%args<from-file>);
   } elsif $!from-handle
   {
     self.read-from-handle;
   }
+note "Finished TWEAK";
 #  return $this;
 }
 ###########################################################################
@@ -149,7 +155,7 @@ method init(*%options) {
   print "init called against this Opus\n" if $Debug;
   if $Debug {
     if %options {
-      note "Parameters: ", map("<$_>", %options);
+      note "Parameters: ", %options.perl;
     } else {
       note "Null parameters for opus init";
     }
@@ -312,10 +318,11 @@ method read-from-file($source, *%options) {
   #  This is currently meant to be called by only the
   #   MIDI::Opus.new() constructor.
 
+note "read-from-file: ", $source, ' ', %options.perl;
   fail "No source file specified" unless $source.defined && $source;
   my $IN-MIDI = $source.IO.open: :bin :r or fail "Can't open $source for reading: '$!'\n";
 
-  self.read-from-handle($IN-MIDI, %options);
+  self.read-from-handle($IN-MIDI, |%options);
   $IN-MIDI.close ||
     fail "error while closing filehandle for $source: '$!'\n";
 }
@@ -362,7 +369,7 @@ method write-to-handle($fh, *%options) {
     # Ninety-six ticks per quarter-note seems a pleasant enough default.
 
   $fh.write:
-    Buf.new( 0x4e, 0x54, 0x68, 0x64, 0, 0, 0, 6 ) ~ # "MThd\x00\x00\x00\x06".encode ~ # header; 6 bytes follow
+    Buf.new( 0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6 ) ~ # "MThd\x00\x00\x00\x06".encode ~ # header; 6 bytes follow
     pack-n($format) ~
     pack-n($tracks) ~
     pack-n($ticks);
@@ -397,10 +404,10 @@ method read-from-handle($fh, *%options) {
   my $file-size-left; # TODO
 
   my $track-size-limit;
-  $track-size-limit = %options<track-size> if %options<track-size>.exists;
+  $track-size-limit = %options<track-size> if %options<track-size>.defined;
 
   fail "Can't even read the first 14 bytes from filehandle $fh"
-    unless $in = $fh.readchars: 14, :bin; # 14 = The expected header length.
+    unless $in = $fh.read: 14, :bin; # 14 = The expected header length.
 
   $file-size-left -= 14 if $file-size-left.defined;
 
@@ -411,8 +418,10 @@ method read-from-handle($fh, *%options) {
   $tracks-expected = buf2n($in.subbuf(10, 2));
   $ticks           = buf2n($in.subbuf(12, 2));
 
+dd $id;
+dd Buf[uint8].new('MThd'.comb>>.ord);
   fail "data from handle $fh doesn't start with a MIDI file header"
-    unless $id eq Buf.new('MThd'.comb>>.chr);
+    unless $id eqv Buf[uint8].new('MThd'.comb>>.ord);
   fail "Unexpected MTHd chunk length in data from handle $fh"
     unless $length == 6;
   $!format = $format;
@@ -434,10 +443,10 @@ method read-from-handle($fh, *%options) {
 
     my ($header, $data);
     fail "Can't read header for track chunk \#$track-count"
-      unless $header = $fh.readchars: 8, :bin;
+      unless $header = $fh.read: 8, :bin;
     my ($type, $length); # = unpack('A4N', $header);
     $type   =       $header.subbuf(0, 4);
-    $length = buf2n($header.subbuf(4, 2));
+    $length = buf2N($header.subbuf(4, 4));
 
     if $track-size-limit.defined and $track-size-limit > $length {
       fail "Track \#$track-count\'s length ($length) would"
@@ -451,10 +460,16 @@ method read-from-handle($fh, *%options) {
        if $file-size-left < 0;
     }
 
-    $data = $fh.readchars: $length, :bin;   # whooboy, actually read it now
+dd $header;
+dd $type;
+dd $length;
+    $data = $fh.read: $length, :bin;   # whooboy, actually read it now
 
+note $length;
     if $length == $data.bytes {
-      @!tracks.push: MIDI::Track::decode($type, $data, %options);
+      my $x = MIDI::Track::decode($type, $data, |%options);
+     dd $x;
+      @!tracks.push: MIDI::Track::decode($type, $data, |%options);
     } else {
       fail
         "Length of track \#$track-count is off in data from $fh; "

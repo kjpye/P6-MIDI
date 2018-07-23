@@ -1014,14 +1014,14 @@ method encode($use-running-status, $last-status is rw --> Buf) {
   (Buf);
 }
 
-method encode-text-event($cmd, $text) returns Buf {
+method encode-text-event($cmd, $text --> Buf) {
     say $cmd.WHAT;
     say $text.WHAT;
 dd $text;
     Buf.new(
 	0xff,
 	$cmd,
-	|ber($text.chars)
+	|ber($text.elems)
     ) ~ $text;
 }
 
@@ -1186,7 +1186,7 @@ class MIDI::Event::Set-sequencer-number is MIDI::Event {
 
 class MIDI::Event::Text-event is MIDI::Event {
   has $.time;
-  has $.text;
+  has Buf $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: 0x01, $!text;

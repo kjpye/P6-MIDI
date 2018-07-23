@@ -309,7 +309,7 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
  
   my @events = @!events.clone;
 
-  my $data = ''; # what I'll join @data all together into
+#  my $data = ''; # what I'll join @data all together into
 
   my $unknown-callback = Nil;
   $unknown-callback = %options<unknown-callback>;
@@ -331,7 +331,7 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
 	  }
         } else {
           # last event was neither a 0-length text-event nor an end-track
-	  @events.push: MIDI::Event.new(type => 'end-track');
+	  @events.push: MIDI::Event::End-track.new();
         }
       }
     } else { # an eventless track!
@@ -346,7 +346,15 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
   my $maybe-running-status = not %options<no-running-status>;
   $last-status = -1;
 
-  [~] @events.map: { .encode($maybe-running-status, $last-status) };
+  # This is what I wanted the next pice of code to be. Unfortunately it gives errors about using Str on a Buf
+  #[~] @events.map: { .encode($maybe-running-status, $last-status) };
+  my $ret = Buf.new();
+  for @events -> $event {
+#      dd $ret;
+#      dd $event;
+    $ret = $ret ~ $event.encode($maybe-running-status, $last-status);
+  }
+  $ret;
 }
 
 ###########################################################################
@@ -385,7 +393,7 @@ method encode(*%options) { # encode a track object into track data (not a chunk)
 
 # CURRENTLY UNDOCUMENTED -- no end-user ever needs to call this as such
 #
-sub decode($type, $data, *%options) { # returns a new object, but doesn't accept constructor syntax
+sub decode($type, $data, *%options) is export { # returns a new object, but doesn't accept constructor syntax
   # decode track data (not a chunk) into a new track object
   # Calling format:
   #  $new-track = 
