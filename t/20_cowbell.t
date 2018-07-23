@@ -10,7 +10,7 @@ ok 1;
 #TODO unlink $out if -e $out;
   {
    my @events = (
-     MIDI::Event::Text-event.new( time => 0, text  => 'MORE COWBELL'),
+     MIDI::Event::Text-event.new( time => 0, text  => Buf.new('MORE COWBELL'.comb>>.ord)),
      MIDI::Event::Set-tempo.new(  time => 0, tempo => 450_000), # 1qn = .45 seconds
    );
   

@@ -1014,9 +1014,10 @@ method encode($use-running-status, $last-status is rw --> Buf) {
   (Buf);
 }
 
-method encode-text-event($cmd, $text -> Buf) {
+method encode-text-event($cmd, $text) returns Buf {
     say $cmd.WHAT;
     say $text.WHAT;
+dd $text;
     Buf.new(
 	0xff,
 	$cmd,

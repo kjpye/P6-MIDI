@@ -335,7 +335,7 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
         }
       }
     } else { # an eventless track!
-      @events = [ MIDI::Event.new(type => 'end-track') ];
+      @events = [ MIDI::Event::End-track.new() ];
     }
   }
 
