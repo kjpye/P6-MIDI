@@ -1,6 +1,6 @@
-unit class MIDI::Track;
+use v6.d;
 
-use v6;
+unit class MIDI::Track;
 
 my $Debug = 1;
 my $VERSION = '0.83';
@@ -8,8 +8,8 @@ my $VERSION = '0.83';
 use MIDI::Event;
 
 has @.events;
-has $.type = '';
-has $.data;
+has $.type = Buf.new(0x4d, 0x54, 0x72, 0x6b);
+has $.data is rw;
 
 =begin pod
 =head1 NAME
@@ -30,7 +30,7 @@ MIDI::Track -- functions and methods for MIDI tracks
  );
    ...etc...
 
-=head1 DESCRIPTION
+
 
 MIDI::Track provides a constructor and methods for objects
 representing a MIDI track.  It is part of the MIDI suite.
@@ -350,8 +350,6 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
   #[~] @events.map: { .encode($maybe-running-status, $last-status) };
   my $ret = Buf.new();
   for @events -> $event {
-#      dd $ret;
-#      dd $event;
     $ret = $ret ~ $event.encode($maybe-running-status, $last-status);
   }
   $ret;
@@ -375,11 +373,11 @@ method encode(*%options) { # encode a track object into track data (not a chunk)
     $data = $!data;
     # warn "Encoding 0-length track data!" unless length $data;
   } else { # Data is not defined for this track.  Parse the events
-    if $!type eq 'MTrk'  or  $data.chars == 0
+    if $!type eq Buf.new(0x4d, 0x54, 0x72, 0x6b) or  $data.chars == 0
         and @!events.defined
              # not just exists -- but DEFINED!
     {
-      note "Encoding ", @!events if $Debug;
+      # note "Encoding ", @!events if $Debug;
       $data = self.encode-events(|%options);
     } else {
       $data = ''; # what else to do?
@@ -393,7 +391,7 @@ method encode(*%options) { # encode a track object into track data (not a chunk)
 
 # CURRENTLY UNDOCUMENTED -- no end-user ever needs to call this as such
 #
-sub decode($type, $data, *%options) is export { # returns a new object, but doesn't accept constructor syntax
+our sub decode($type, $data, *%options) is export { # returns a new object, but doesn't accept constructor syntax
   # decode track data (not a chunk) into a new track object
   # Calling format:
   #  $new-track = 
@@ -401,15 +399,15 @@ sub decode($type, $data, *%options) is export { # returns a new object, but does
   # Returns a new track-object.
   # The anonymous hash of options is, well, optional
 
-  my $track = MIDI::Track.new( track => $type );
-
-  if $type eq 'MTrk' and not %options<no-parse> {
-    $track.events(MIDI::Event::decode($data, %options));
+  my $track = MIDI::Track.new( type => $type );
+  
+  if $type eq Buf.new(0x4d, 0x54, 0x72, 0x6b) and not %options<no-parse> {
+    $track.events = MIDI::Event::decode($data, |%options);
         # And that's where all the work happens
   } else {
-    $track.data($data);
+    $track.data = $data;
   }
-  return $track;
+  $track;
 }
 
 ###########################################################################
@@ -421,7 +419,6 @@ sub decode($type, $data, *%options) is export { # returns a new object, but does
 
 Copyright (c) 1998-2002 Sean M. Burke. All rights reserved.
 
-This library is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
 =head1 AUTHOR

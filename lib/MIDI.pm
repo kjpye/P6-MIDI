@@ -1,6 +1,6 @@
-unit module MIDI;
+use v6.d;
 
-use v6;
+unit module MIDI;
 
 use MIDI::Opus;
 use MIDI::Track;

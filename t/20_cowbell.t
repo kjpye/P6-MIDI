@@ -1,7 +1,7 @@
 use v6;
 use Test;
 
-plan 47;
+plan 43;
 
 use MIDI;
 ok 1;
@@ -28,6 +28,7 @@ ok 1;
    }
 
    my $cowbell-track = MIDI::Track.new( events => @events );
+#dd $cowbell-track;
 ok 1;
    my $opus = MIDI::Opus.new(
    format => 0, ticks => 96, tracks => [ $cowbell-track ] );
@@ -46,23 +47,23 @@ ok $out.IO.s < 1100;
 ok 1;
   say "# Opus: [$o]";
 ok $o ~~ MIDI::Opus, "checking opus classitude"; # sanity
-say 'ticks: ', $o.ticks;
-ok $o.ticks, 96;
+is $o.ticks, 96;
   $o.ticks = 123;
-ok $o.ticks, 123;
-ok $o.format, 0;
+is $o.ticks, 123;
+is $o.format, 0;
   $o.format = 1;
-ok $o.format, 1;
+is $o.format, 1;
 
   my @t = $o.tracks;
   say "# Tracks: [@t]";
 ok +@t, 1;
 #ok +@t, 1, "checking track count"  or die;
 
-  print "# "; dd @t;
+#  print "# "; dd @t;
   my $t = @t[0];
 ok $t ~~ MIDI::Track;
-ok $t.type, "MTrk";
+#ok $t.type, "MTrk";
+is-deeply $t.type, Buf[uint8].new(0x4d, 0x54, 0x72, 0x6b);
 
 
 ok $o.tracks.defined;
@@ -74,42 +75,38 @@ ok $t.events.defined;
 ok $t.events ~~ (Array) or die;
 ok +$t.events, 234;
   my @e = $t.events;
-ok @e[0], $t.events[0]; # tests coreference
+is-deeply @e[0], $t.events[0]; # tests coreference
 
-  say "# First event: [@e[0]]";
+#  note "# First event: {dd @e[0]}";
 
-ok @e[0] ~~ (array) or die;
-ok @e[0].type, "text-event";
-ok @e[0].delta-time, "0";
-ok +@e[0].args, 1;
-ok @e[0].args[0], "MORE COWBELL";
+ok @e[0] ~~ (MIDI::Event::Text-event);
+is @e[0].time, 0;
+ok @e[0].text, "MORE COWBELL";
 
   say "# Second event: [@e[1]]";
 
-ok @e[1].type, "set-tempo";
-ok @e[1].delta-time, "0";
-ok +@e[1].args, 1;
-ok @e[1].args[0], "450000";
+ok @e[1] ~~ (MIDI::Event::Set-tempo);
+is @e[1].time, 0;
+is @e[1].tempo, 450000;
 
   say "# Third event: [@e[2]]";
 
-ok @e[2].type, "note-on";
-ok @e[2].delta-time, "90";
-ok +@e[1].args, 3;
-ok @e[2].args[0], "9";
-ok @e[2].args[1], "56";
-ok @e[2].args[2], "127";
+ok @e[2] ~~ (MIDI::Event::Note-on);
+is @e[2].time,         90;
+is @e[2].channel,       9;
+is @e[2].note-number,  56;
+is @e[2].velocity,    127;
 
 
   say "# Fourth event: [@e[3]]";
-ok @e[3].type, "note-off";
-ok @e[3].delta-time, "6";
-ok @e[3].args[0], "9";
-ok @e[3].args[1], "56";
-ok @e[3].args[2], "127";
+ok @e[3] ~~ (MIDI::Event::Note-off);
+is @e[3].time,         6;
+is @e[3].channel,      9;
+is @e[3].note-number, 56;
+is @e[3].velocity,   127;
 
-  $t.type("Muck");
-ok $t.type, "Muck";
+  $t.type = Buf.new("Muck".comb>>.ord);
+is-deeply $t.type, Buf[uint8].new('Muck'.comb>>.ord);
 
   #unlink $out;
   say "# Okay, all done!\n";

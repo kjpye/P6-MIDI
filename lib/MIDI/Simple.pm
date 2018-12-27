@@ -1,13 +1,13 @@
-unit class MIDI::Simple;
+use v6.d;
 
-use v6;
+unit class MIDI::Simple;
 
 use MIDI;
 
 my %package;
 my %volume;
 my @note;
-my %note;
+#my %note;
 my %length;
 
 has $.time     =  0;
@@ -158,19 +158,19 @@ before .700 (but that was a I<looong> time ago).
 
 );
 
-%note = (
- 'C'  =>  0,
- 'Cs' =>  1, 'Df' =>  1, 'Csharp' =>  1, 'Dflat' =>  1,
- 'D'  =>  2,
- 'Ds' =>  3, 'Ef' =>  3, 'Dsharp' =>  3, 'Eflat' =>  3,
- 'E'  =>  4,
- 'F'  =>  5,
- 'Fs' =>  6, 'Gf' =>  6, 'Fsharp' =>  6, 'Gflat' =>  6,
- 'G'  =>  7,
- 'Gs' =>  8, 'Af' =>  8, 'Gsharp' =>  8, 'Aflat' =>  8,
- 'A'  =>  9,
- 'As' => 10, 'Bf' => 10, 'Asharp' => 10, 'Bflat' => 10,
- 'B'  => 11,
+our enum Note (
+ C  =>  0,
+ Cs =>  1, Df =>  1, Csharp =>  1, Dflat =>  1,
+ D  =>  2,
+ Ds =>  3, Ef =>  3, Dsharp =>  3, Eflat =>  3,
+ E  =>  4,
+ F  =>  5,
+ Fs =>  6, Gf =>  6, Fsharp =>  6, Gflat =>  6,
+ G  =>  7,
+ Gs =>  8, Af =>  8, Gsharp =>  8, Aflat =>  8,
+ A  =>  9,
+ As => 10, Bf => 10, Asharp => 10, Bflat => 10,
+ B  => 11,
 );
 
 @note = <C Df  D Ef  E   F Gf  G Af  A Bf  B>;
@@ -671,25 +671,25 @@ method parse-options(*@args) { # common parser for n/r/noop options
       $!octave = 10 if $!octave > 10;
 
     } elsif $arg ~~ m<^ ( <[A..Z a..z \x80..\xFF]>+ ) (_<[du]>)? (\d+)? $> # FIXME
-             and %note{$1}.exists
+             and $0 ~~ (Note)
     {
-      my $note = %note{$1};
+      my $note = $0;
       my $octave = $!octave;
-      my $o_spec = $2;
-      say "note<$1> => <$note> ; octave_spec<$2> Octave<$octave>"
+      my $o_spec = $1;
+      say "note<$0> => <$note> ; octave_spec<$1> Octave<$octave>"
         if $Debug;
 
       if ! ($o_spec.defined && $o_spec) {
          # it's a bare note like "C" or "Bflat"
         # noop
       } elsif $o_spec ~~ m<^ (\d+) $> {      # absolute! (alphanumeric)
-        $!octave = $octave = $1;
-        fail "Octave out of range: \"$1\" in \"$arg\"" if $1 > 10;
+        $!octave = $octave = $0;
+        fail "Octave out of range: \"$0\" in \"$arg\"" if $0 > 10;
       } elsif $o_spec ~~ m<^ _d (\d+) $> {    # relative with _dN
-        $octave -= $1;
+        $octave -= $0;
         $octave = 0 if $octave < 0;
       } elsif $o_spec ~~ m<^ _u (\d+) $> {    # relative with _uN
-        $octave += $1;
+        $octave += $0;
         $octave = 10 if $octave > 10;
       } else {
         die "Unexpected error 5176123";

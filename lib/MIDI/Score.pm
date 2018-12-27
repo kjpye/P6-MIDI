@@ -1,8 +1,10 @@
+use v6.d;
+
 class MIDI::Score {
 
-use v6;
-
 my $VERSION = '0.84';
+
+use experimental :pack;
 
 =begin pod
 =head1 NAME

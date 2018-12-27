@@ -1,6 +1,6 @@
-unit class MIDI::Opus;
+use v6.d;
 
-use v6;
+unit class MIDI::Opus;
 
 use MIDI::Track;
 
@@ -106,9 +106,7 @@ method TWEAK(*%args) {
 #
 #  my $this = bless( {}, $class );
 #
-note "In TWEAK: ", %args.perl;
   $!from-file = %args<from-file>;
-note "from-file: ", $!from-file;
   print "New object in class MIDI::Opus\n" if $Debug;
 
   return self if %args<no-opus-init>; # bypasses all init.
@@ -120,7 +118,6 @@ note "from-file: ", $!from-file;
   {
     self.read-from-handle;
   }
-note "Finished TWEAK";
 #  return $this;
 }
 ###########################################################################
@@ -155,7 +152,7 @@ method init(*%options) {
   print "init called against this Opus\n" if $Debug;
   if $Debug {
     if %options {
-      note "Parameters: ", %options.perl;
+#      note "Parameters: ", %options.perl;
     } else {
       note "Null parameters for opus init";
     }
@@ -375,8 +372,9 @@ method write-to-handle($fh, *%options) {
     pack-n($ticks);
 
   for @!tracks -> $track {
-    my $data = '';
-    my $type = (($track.type // '') ~ "\x00\x00\x00\x00").encode.subbuf: 0, 4;
+    my $data = Buf.new();
+    my $type = ($track.type ~ Buf.new(0, 0, 0, 0)).subbuf: 0, 4;
+#    my $type = (($track.type // '') ~ "\x00\x00\x00\x00").encode.subbuf: 0, 4;
       # Force it to be 4 chars long.
     $fh.write: $type;
     $data =  $track.encode(|%options);
@@ -406,8 +404,8 @@ method read-from-handle($fh, *%options) {
   my $track-size-limit;
   $track-size-limit = %options<track-size> if %options<track-size>.defined;
 
-  fail "Can't even read the first 14 bytes from filehandle $fh"
-    unless $in = $fh.read: 14, :bin; # 14 = The expected header length.
+  # header should be 14 bytes
+  ($in = $fh.read: 14, :bin) or fail "Can't even read the first 14 bytes from filehandle $fh";
 
   $file-size-left -= 14 if $file-size-left.defined;
 
@@ -418,8 +416,6 @@ method read-from-handle($fh, *%options) {
   $tracks-expected = buf2n($in.subbuf(10, 2));
   $ticks           = buf2n($in.subbuf(12, 2));
 
-dd $id;
-dd Buf[uint8].new('MThd'.comb>>.ord);
   fail "data from handle $fh doesn't start with a MIDI file header"
     unless $id eqv Buf[uint8].new('MThd'.comb>>.ord);
   fail "Unexpected MTHd chunk length in data from handle $fh"
@@ -428,12 +424,12 @@ dd Buf[uint8].new('MThd'.comb>>.ord);
   $!ticks  = $ticks;   # ...which may be a munged 'negative' number
   @!tracks = [];
 
-  say "file header from handle $fh read and parsed fine." if $Debug;
+  note "file header from handle $fh read and parsed fine." if $Debug;
   my $track-count = 0;
 
   until $fh.eof {
     ++$track-count;
-    print "Reading Track \# $track-count into a new track\n" if $Debug;
+    note "Reading Track \# $track-count into a new track" if $Debug;
 
     if $file-size-left.defined {
       $file-size-left -= 2;
@@ -441,12 +437,10 @@ dd Buf[uint8].new('MThd'.comb>>.ord);
 	if $file-size-left < 0;
     }
 
-    my ($header, $data);
-    fail "Can't read header for track chunk \#$track-count"
-      unless $header = $fh.read: 8, :bin;
-    my ($type, $length); # = unpack('A4N', $header);
-    $type   =       $header.subbuf(0, 4);
-    $length = buf2N($header.subbuf(4, 4));
+    my $header = $fh.read: 8, :bin or fail "Can't read header for track chunk \#$track-count";
+    my $data;
+    my $type   = $header.subbuf(0, 4);
+    my $length = $header.read-uint32(4, BigEndian);
 
     if $track-size-limit.defined and $track-size-limit > $length {
       fail "Track \#$track-count\'s length ($length) would"
@@ -460,15 +454,9 @@ dd Buf[uint8].new('MThd'.comb>>.ord);
        if $file-size-left < 0;
     }
 
-dd $header;
-dd $type;
-dd $length;
     $data = $fh.read: $length, :bin;   # whooboy, actually read it now
 
-note $length;
     if $length == $data.bytes {
-      my $x = MIDI::Track::decode($type, $data, |%options);
-     dd $x;
       @!tracks.push: MIDI::Track::decode($type, $data, |%options);
     } else {
       fail
