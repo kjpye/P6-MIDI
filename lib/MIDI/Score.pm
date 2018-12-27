@@ -333,24 +333,25 @@ item).
 
 =end pod
 
-method events-to-score(*%options) {
+our sub events-to-score($events, *%options) {
   # Returns the score AND the total tick time
 
   my $time = 0;
   if %options<no_note_abstraction> {
-    my $score = MIDI::Event::copy_structure(@!notes);
+    my @score;
     my $new-time;
-    for $score -> $event {
+    for $events -> $event {
       # print join(' ', $event), "\n";
+      my $nevent = $event.copy;
       $new-time = $time + $event.time;
-      $event.time = $time;
+      $nevent.time = $time;
       $time = $new-time;
     }
     return $score, $time;
   } else {
     my %note = ();
     my @score =
-      @!notes.map:
+      $events.map:
       {
 #	if !ref($_) {
 #	  ();
@@ -411,7 +412,7 @@ a count of the number of ticks that structure takes to play
 
 =end pod
 
-sub score_r_time {
+our sub score_time {
   # returns the duration of the score you pass a reference to
   my $score = $_[0];
 #  fail "arg 1 of MIDI::Score::score_r_time isn't a ref" unless ref $score;
