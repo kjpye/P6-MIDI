@@ -1024,13 +1024,14 @@ note "Unhandled command $_";
 	    and %options<no_eot_magic> {
 		if $E.time > 0 {
 		    $E = MIDI::Event::Text-event.new(
-			time => $E[1],
+			time => $E.time,
 			text => Buf.new(),
 		    );
 		    # Make up a fictive 0-length text event as a carrier
 		    #  for the non-zero delta-time.
 		    
-		    if $E and %exclude{$E.type} {
+		    if ($E ~~ (MIDI::Event::Text-event) and %exclude<Text-event>)
+		      or ($E ~~ (MIDI::Event::End-track) and %exclude<End-track>) {
                       if $Debug {
                         print " Excluding:\n";
                         dd($E);
@@ -1057,6 +1058,7 @@ note "Unhandled command $_";
 	    return @events;
 	  }
 	}
+dd @events;
     @events;
 }
 
