@@ -15,7 +15,6 @@ $opus.quantize(grid => 25, durations => 1);
 my $score = MIDI::Score::events-to-score($opus.tracks[0].events);
 my $ticks = $score.duration;
 $score.dump-score;
-dd $score;
 is $ticks, 5950;
 
 

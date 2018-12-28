@@ -1,12 +1,10 @@
-use v6.d;
+use v6.d+;
 
 class MIDI::Score {
 
     use MIDI::Event;
     
 my $VERSION = '0.84';
-
-use experimental :pack;
 
 =begin pod
 =head1 NAME
@@ -230,7 +228,6 @@ I<reference> to a copy of it. Example usage:
 
           @new_score = @{ MIDI::Score::copy_structure( \@old_score ) };
 
-=cut
 =end pod
 
 has @.notes;
@@ -243,27 +240,21 @@ sub copy-structure {
 ##########################################################################
 
 =begin pod
-=item $events_r = MIDI::Score::score_r_to_events_r( $score_r )
+=item $events = $score.events( )
 
-=item ($events_r, $ticks) = MIDI::Score::score_r_to_events_r( $score_r )
+This method returns an array containing the standard MIDI events
+corresponding to the notes in the scoer.
 
-This takes a I<reference> to a score structure, and converts it to an
-event structure, which it returns a I<reference> to.  In list context,
-also returns a second value, a count of the number of ticks that
-structure takes to play (i.e., the end-time of the temporally last
-item).
-
-=cut
 =end pod
 
 method events {
-  # list context: Returns the events AND the total tick time
-  # scalar context: Returns events
 
   my $time = 0;
   my @events = ();
 
-  # First, turn instances of 'note' into 'note_on' and 'note_off':
+  # create an array of events containing the notes of the score
+  # replaced by a pair of note-on and note-off events (but still
+  # with the .time field containing absolute time
   for @!notes -> $note {
     if $note ~~ (MIDI::Event::Note) {
 	my $note-on  = MIDI::Event::Note-on.new(
@@ -283,11 +274,10 @@ method events {
       @events.push: $note;
     }
   }
-  # warn scalar(@events), " events in $score_r";
+# Now create a sequence $score containing the events in time order
   my $score = @events.sort({$^a.time <=> $^b.time});
-  # warn scalar(@$score_r), " events in $score_r";
 
-  # Now we turn it into an event structure by fiddling the timing
+# Now we turn it into an event structure by fiddling the timing
   $time = 0;
   my @newevents;
   for $score.values -> $event {
@@ -302,16 +292,15 @@ method events {
 ###########################################################################
 
 =begin pod
-=item $score2_r = MIDI::Score::sort_score_r( $score_r)
+=item @events = $score.sort()
 
-This takes a I<reference> to a score structure, and returns a
-I<reference> to a sorted (by time) copy of it. Example usage:
+This method returns an sequence with the notes in the score sorted.
 
-          @sorted_score = @{ MIDI::Score::sort_score_r( \@old_score ) };
+          @sorted-events = $old-score.sort();
 
 =end pod
 
-sub sort-score($score) {
+method sort {
   # take a reference to a score LoL, and sort it by note start time,
   # and return a reference to that sorted LoL.  Notes from the same
   # time must be left in the order they're found!!!!  That's why we can't
@@ -319,7 +308,7 @@ sub sort-score($score) {
 
   # Except in Perl6, where sort is stable!
 
-  $score.sort({$^a.time <=> $^b.time});
+  .notes.sort({$^a.time <=> $^b.time});
 }
 ###########################################################################
 
@@ -361,31 +350,29 @@ our sub events-to-score($events, *%options) {
       $events.values.map:
       {
 	  temp $_; # copy.
-dd $_;
 	  $time += .time;
 	  if $_ ~~ (MIDI::Event::Note-off)
 	     or ($_ ~~ (MIDI::Event::Note-on) && .velocity == 0) { # End of a note
-	    # print "Note off : @$_\n";
-# 0.82: handle multiple prior events with same chan/note.
-               my $index = make-index(.channel, .note);
+              my $index = make-index(.channel, .note);
 	       if %note{$index} && %note{$index}[0] {
                   %note{$index}[0].duration += $time;
                   %note{$index}.shift;
                }             
 	    next; # Erase this event.
 	  } elsif $_ ~~ (MIDI::Event::Note-on) {
-            my $index = make-index(.channel, .note);
 	    # Start of a note
-
-	    # ('note', Starttime, Duration, Channel, Note, Veloc)
-	    my $newnote = MIDI::Event::Note.new(time => $time, duration => -$time, channel => .channel,
-			                        note-number => .note-number,  velocity => .velocity
+              my $index = make-index(.channel, .note);
+	      my $newnote = MIDI::Event::Note.new(time        => $time,
+						  duration    => -$time,
+						  channel     => .channel,
+			                          note-number => .note-number,
+						  velocity    => .velocity
                                                );
-            %note{$index}.push: $newnote;
-            $newnote;
+              %note{$index}.push: $newnote;
+              $newnote;
 	  } else {
-            .time = $time;
-	    $_;
+              .time = $time;
+	      $_;
 	  }
       }
 
@@ -401,22 +388,6 @@ dd $_;
     MIDI::Score.new(notes => @score, duration => $time);
   }
 }
-###########################################################################
-
-=begin pod
-=item $ticks = MIDI::Score::score_r_time( $score_r )
-
-This takes a I<reference> to a score structure, and returns 
-a count of the number of ticks that structure takes to play
-(i.e., the end-time of the temporally last item).
-
-=end pod
-
-method score-time {
-  # returns the duration of the score you pass a reference to
-  .duration;
-}
-###########################################################################
 
 =begin pod
 =item MIDI::Score::dump-score( )
@@ -467,7 +438,6 @@ method quantize(*%options) {
       }
       @newevents.push: $n-event;
   }
-dd @newevents;
   MIDI::Score.new(notes => @newevents);
 }
 

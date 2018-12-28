@@ -15,6 +15,6 @@ my $score = MIDI::Score::events-to-score($track.events);
 $score = MIDI::Score::events-to-score($track.events);
 $score = MIDI::Score::events-to-score($track.events);
 #print MIDI::Score::score_r_time( $score_r );
-ok MIDI::Score::score-time( $score ), 19200 or die;
+ok $score.duration, 19200 or die;
 
  

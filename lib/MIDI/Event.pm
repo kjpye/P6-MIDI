@@ -3,9 +3,6 @@ use v6;
 my $Debug = 1;
 my $VERSION = '0.84';
 
-# Some helper functions to get data out of a buffer (to replace the original
-# pack/unpack calls.
-
 sub ber($value is copy){
     my @bytes = $value +& 0x7f;
     $value +>= 7;
@@ -16,29 +13,11 @@ sub ber($value is copy){
     @bytes.reverse;
 }
 
-sub getubyte($data, $pointer is rw) {
-    my $byte = $data[$pointer++];
-    $byte;
-}
-
 sub signextendbyte($byte) {
     if $byte +& 0x80 {
         return $byte - 256;
     }
     $byte;
-}
-
-sub getsbyte($data, $pointer is rw) {
-    my $byte = $data[$pointer++];
-    if $byte +& 0x80 {
-        $byte -= 256;
-    }
-    $byte;
-}
-
-sub getushort($data, $pointer is rw) { # network order
-    my $value = $data[$pointer++] +< 8;
-    $value + $data[$pointer++]     ;
 }
 
 sub getint24($data, $pointer) {
@@ -635,8 +614,9 @@ And these are the events:
 			  when 0x00 {
 			    $E = MIDI::Event::Set-sequencer-number.new(
 								       time            => $time,
-								       sequence-number => getushort($data, $Pointer),
+								       sequence-number => $data.readuint16($Pointer, BigEndian),
 								      );
+			    $Pointer += 2;
 			  }
 
 			  # Defined text events ----------------------------------------------
@@ -823,9 +803,9 @@ And these are the events:
 =end pod
 			  when 0x59 {
 			    $E = MIDI::Event::Key-signature.new(
-								time => $time,
-								sharps => signextendbyte($data[0]),
-								major-minor => $data[1],
+								time        => $time,
+								sharps      => $data.getint8($Pointer++);
+								major-minor => $data.getint8($Pointer++),
 							       );
 			  }
 
