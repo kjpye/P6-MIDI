@@ -2,6 +2,8 @@ use v6.d;
 
 class MIDI::Score {
 
+    use MIDI::Event;
+    
 my $VERSION = '0.84';
 
 use experimental :pack;
@@ -231,7 +233,8 @@ I<reference> to a copy of it. Example usage:
 =cut
 =end pod
 
-has @!notes;
+has @.notes;
+has $.duration = 0;
 
 sub copy-structure {
   return &MIDI::Event::copy-structure(@_);
@@ -253,7 +256,7 @@ item).
 =cut
 =end pod
 
-method to-events {
+method events {
   # list context: Returns the events AND the total tick time
   # scalar context: Returns events
 
@@ -264,20 +267,18 @@ method to-events {
   for @!notes -> $note {
     if $note ~~ (MIDI::Event::Note) {
 	my $note-on  = MIDI::Event::Note-on.new(
-	    time     => $note.time,
-	    channel  => $note.channel,
-	    note     => $note.note,
-	    velocity => $note.velocity
+	    time        => $note.time,
+	    channel     => $note.channel,
+	    note-number => $note.note-number,
+	    velocity    => $note.velocity
 	);
 	my $note-off = MIDI::Event::Note-off.new(
-	    time     => $note.time,
-	    channel  => $note.channel,
-	    note     => $note.note,
-	    velocity => 0
+	    time        => $note.time + $note.duration,
+	    channel     => $note.channel,
+	    note-number => $note.note-number,
+	    velocity    => 0
 	);
-      @events.push: $note-on, $note-off;
-      #dd $note-on;
-      #dd $note-off;
+      @events.append: $note-on, $note-off;
     } else {
       @events.push: $note;
     }
@@ -288,13 +289,15 @@ method to-events {
 
   # Now we turn it into an event structure by fiddling the timing
   $time = 0;
-  for $score -> $event {
+  my @newevents;
+  for $score.values -> $event {
     next unless $event;
     my $delta = $event.time - $time; # Figure out the delta
     $time = $event.time; # Move it forward
     $event.time = $delta; # Swap it in
+    @newevents.push: $event;
   }
-  return ($score, $time);
+  return @newevents;
 }
 ###########################################################################
 
@@ -333,6 +336,10 @@ item).
 
 =end pod
 
+sub make-index($a, $b) {
+  ($a +< 8) +| $b;
+}
+
 our sub events-to-score($events, *%options) {
   # Returns the score AND the total tick time
 
@@ -347,58 +354,51 @@ our sub events-to-score($events, *%options) {
       $nevent.time = $time;
       $time = $new-time;
     }
-    return $score, $time;
+    return MIDI::Score.new(notes => @score, duration => $time);
   } else {
     my %note = ();
     my @score =
-      $events.map:
+      $events.values.map:
       {
-#	if !ref($_) {
-#	  ();
-#	} else {
-# 0.82: the following must be declared local
 	  temp $_; # copy.
-#	  $_.time = ($time += $_.time) if ref($_);
-
-	  if $_ ~~ (MIDI::Event::Note_off)
-	     or ($_ ~~ (MIDI::Event::Note-on) &&
-		 $_.velocity == 0) { # End of a note
+dd $_;
+	  $time += .time;
+	  if $_ ~~ (MIDI::Event::Note-off)
+	     or ($_ ~~ (MIDI::Event::Note-on) && .velocity == 0) { # End of a note
 	    # print "Note off : @$_\n";
 # 0.82: handle multiple prior events with same chan/note.
-	       if (
-		   %note{pack 'CC', $_.channel, $_.note}.exists
-		   && @(%note{pack 'CC', $_.channel, $_.note})
-		  ) {
-		  shift(@(%note{pack 'CC', $_.channel, $_.note})).note += $time;
-		  unless @(%note{pack 'CC', $_.channel, $_.note}) {%note{pack 'CC', $_.channel, $_.note}:delete;}
-	      }
-	    (); # Erase this event.
-	  } elsif $! ~~ (midi::Event::Note-on) {
+               my $index = make-index(.channel, .note);
+	       if %note{$index} && %note{$index}[0] {
+                  %note{$index}[0].duration += $time;
+                  %note{$index}.shift;
+               }             
+	    next; # Erase this event.
+	  } elsif $_ ~~ (MIDI::Event::Note-on) {
+            my $index = make-index(.channel, .note);
 	    # Start of a note
-	    $_ = [@$_];
 
-	    push(@(%note{ pack 'CC', $_.channel, $_.note}),$_);
-#	    splice(@$_, 2, 0, -$time);
 	    # ('note', Starttime, Duration, Channel, Note, Veloc)
-	    MIDI::Event::Note.new(time => $_.time, duration => -$time, channel => $_.channel,
-				  note => $_.note,  velocity => $_.velocity
-				 );
+	    my $newnote = MIDI::Event::Note.new(time => $time, duration => -$time, channel => .channel,
+			                        note-number => .note-number,  velocity => .velocity
+                                               );
+            %note{$index}.push: $newnote;
+            $newnote;
 	  } else {
+            .time = $time;
 	    $_;
 	  }
-#	}
-      };
+      }
 
     #print "notes remaining on stack: ", %note.elems, "\n"
     #  if values %note;
 # 0.82: clean up pending events gracefully
-    for %note.keys -> $k {
-	for @(%note{$k}) -> $one {
-	    $one.time += $time;
+    for %note.values {
+	for $_.values {
+	    .time += $time;
 	}
     }
 #    return(@score, $time) if wantarray;
-    return @score;
+    MIDI::Score.new(notes => @score, duration => $time);
   }
 }
 ###########################################################################
@@ -412,38 +412,28 @@ a count of the number of ticks that structure takes to play
 
 =end pod
 
-our sub score_time {
+method score-time {
   # returns the duration of the score you pass a reference to
-  my $score = $_[0];
-#  fail "arg 1 of MIDI::Score::score_r_time isn't a ref" unless ref $score;
-  my $track_time = 0;
-  for @$score -> $event {
-    next unless @$event;
-    my $event_end_time = ($event ~~ (MIDI::Event::Note)) ??
-      ($event.channel + $event.note)  !!  $event.channel ;
-    #print "event_end_time: $event_end_time\n";
-    $track_time = $event_end_time if $event_end_time > $track_time;
-  }
-  return $track_time;
+  .duration;
 }
 ###########################################################################
 
 =begin pod
-=item MIDI::Score::dump_score( $score_r )
+=item MIDI::Score::dump-score( )
 
 This dumps (via C<print>) a text representation of the contents of
 the event structure you pass a reference to.
 
 =end pod
 
-sub dump_score {
-  my $score = $_[0];
-  print "\@notes = (   # ", @$score.elems, " notes...\n";
-  for @$score -> $note {
-    print " [", &MIDI::_dump_quote(@$note), "],\n" if @$note;
-  }
-  print ");\n";
-  return;
+method dump-score {
+  say .perl;
+#  print "\@notes = (   # ", @.elems, " notes...\n";
+#  for .notes -> $note {
+#    print " [", &MIDI::_dump_quote(@$note), "],\n" if @$note;
+#  }
+#  print ");\n";
+#  return;
 }
 
 ###########################################################################
@@ -463,22 +453,22 @@ responsiblity of the caller to deal with them.
 
 =end pod
 
-sub quantize($score, *%options) {
+method quantize(*%options) {
   my $grid = %options<grid>;
   if $grid < 1 {fail "bad grid $grid in MIDI::Score::quantize!"; $grid = 1;}
   my $qd = %options<durations>; # quantize durations?
-  my $new_score = [];
-  my $n_event;
-  for @($score) -> $event {
-      my $n_event = [];
-      @($n_event) = @($event);
-      $n_event[1] = $grid * int(($n_event[1] / $grid) + 0.5);
-      if ($qd && $n_event[0] eq 'note') {
-	  $n_event[2] = $grid * int(($n_event[2] / $grid) + 0.5);
+  my @newevents;
+  my $n-event;
+  for @!notes -> $event {
+      $n-event = $event;
+      $n-event.time = $grid * ($n-event.time / $grid + 0.5).Int;
+      if $qd && $n-event ~~ (MIDI::Event::Note) {
+	  $n-event.duration = $grid * ($n-event.duration / $grid + 0.5).Int;
       }
-      push @($new_score), $n_event;
+      @newevents.push: $n-event;
   }
-  $new_score;
+dd @newevents;
+  MIDI::Score.new(notes => @newevents);
 }
 
 ###########################################################################
@@ -512,7 +502,7 @@ sub skyline($score, *%options) {
     my %events = %();
     my $n_event;
     my ($typeidx,$stidx,$duridx,$pitchidx) = (0,1,2,4); # create some nicer event indices
-# gather all note events into an onset-index hash.  push all others directly into the new score.
+
     for @($score) -> $event {
 	if ($event[$typeidx] eq "note") {push @(%events{$event[$stidx]}), $event;}
 	else {push @($new_score), $event;}

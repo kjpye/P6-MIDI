@@ -100,7 +100,7 @@ class MIDI::Event {
 
 # The contents of an event:
 
-  has $.time = 0; # usually delta time, sometimes absolute time
+#  has $.time is rw = 0; # usually delta time, sometimes absolute time
 
 =begin pod
 =head1 NAME
@@ -1020,8 +1020,7 @@ note "Unhandled command $_";
 	  if $E ~~ (MIDI::Event::End-track) {
 	    # This is the code for exceptional handling of the EOT event.
 	    $eot = 1;
-	    unless %options<no_eot_magic>
-	    and %options<no_eot_magic> {
+	    unless %options<no_eot_magic> {
 		if $E.time > 0 {
 		    $E = MIDI::Event::Text-event.new(
 			time => $E.time,
@@ -1046,7 +1045,7 @@ note "Unhandled command $_";
 			      &{ $exclusive-event-callback }( $E );
 			  } else {
 			      &{ $event-callback }( $E ) if $event-callback;
-			      @events.push: $E;
+			      @events[*-1] = $E;
 			  }
 		      }
 		    }
@@ -1058,7 +1057,6 @@ note "Unhandled command $_";
 	    return @events;
 	  }
 	}
-dd @events;
     @events;
 }
 
@@ -1078,7 +1076,7 @@ method encode-text-event($delta-time, $cmd, $text --> Buf) {
 }				# class Event
 
 class MIDI::Event::Note-off is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.channel;
   has $.note-number;
   has $.velocity;
@@ -1099,17 +1097,17 @@ class MIDI::Event::Note-off is MIDI::Event {
 }
 
 class MIDI::Event::Note is MIDI::Event {
-    has $.time;
-    has $.duration;
+    has $.time is rw;
+    has $.duration is rw;
     has $.channel;
     has $.note-number;
-    has $.volume;
+    has $.velocity;
 
     # no need for an encode method -- it's not a valid midi message
 }
 
 class MIDI::Event::Note-on is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.channel;
   has $.note-number;
   has $.velocity;
@@ -1130,7 +1128,7 @@ class MIDI::Event::Note-on is MIDI::Event {
 }
 
 class MIDI::Event::Key-after-touch is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.channel;
   has $.note-number;
   has $.aftertouch;
@@ -1151,7 +1149,7 @@ class MIDI::Event::Key-after-touch is MIDI::Event {
 }
 
 class MIDI::Event::Controller-change is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.channel;
   has $.controller;
   has $.value;
@@ -1172,7 +1170,7 @@ class MIDI::Event::Controller-change is MIDI::Event {
 }
 
 class MIDI::Event::Patch-change is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.channel;
   has $.patch-number;
 
@@ -1192,7 +1190,7 @@ class MIDI::Event::Patch-change is MIDI::Event {
 }
 
 class MIDI::Event::Channel-after-touch is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.channel;
   has $.aftertouch;
 
@@ -1211,7 +1209,7 @@ class MIDI::Event::Channel-after-touch is MIDI::Event {
 }
 
 class MIDI::Event::Pitch-wheel-change is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.channel;
   has $.value;
 
@@ -1230,12 +1228,12 @@ class MIDI::Event::Pitch-wheel-change is MIDI::Event {
 }
 
 class MIDI::Event::Set-sequencer-number is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.sequence-number;
 }
 
 class MIDI::Event::Text-event is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has Buf $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1244,7 +1242,7 @@ class MIDI::Event::Text-event is MIDI::Event {
 }
 
 class MIDI::Event::Copyright is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1253,7 +1251,7 @@ class MIDI::Event::Copyright is MIDI::Event {
 }
 
 class MIDI::Event::Track-name is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1262,7 +1260,7 @@ class MIDI::Event::Track-name is MIDI::Event {
 }
 
 class MIDI::Event::Instrument-name is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1271,7 +1269,7 @@ class MIDI::Event::Instrument-name is MIDI::Event {
 }
 
 class MIDI::Event::Lyric is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1280,7 +1278,7 @@ class MIDI::Event::Lyric is MIDI::Event {
 }
 
 class MIDI::Event::Marker is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1289,7 +1287,7 @@ class MIDI::Event::Marker is MIDI::Event {
 }
 
 class MIDI::Event::Cue-point is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1298,7 +1296,7 @@ class MIDI::Event::Cue-point is MIDI::Event {
 }
 
 class MIDI::Event::Text-event_08 is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1307,7 +1305,7 @@ class MIDI::Event::Text-event_08 is MIDI::Event {
 }
 
 class MIDI::Event::Text-event_09 is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1316,7 +1314,7 @@ class MIDI::Event::Text-event_09 is MIDI::Event {
 }
 
 class MIDI::Event::Text-event_0a is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1325,7 +1323,7 @@ class MIDI::Event::Text-event_0a is MIDI::Event {
 }
 
 class MIDI::Event::Text-event_0b is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1334,7 +1332,7 @@ class MIDI::Event::Text-event_0b is MIDI::Event {
 }
 
 class MIDI::Event::Text-event_0c is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1343,7 +1341,7 @@ class MIDI::Event::Text-event_0c is MIDI::Event {
 }
 
 class MIDI::Event::Text-event_0d is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1352,7 +1350,7 @@ class MIDI::Event::Text-event_0d is MIDI::Event {
 }
 
 class MIDI::Event::Text-event_0e is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1361,7 +1359,7 @@ class MIDI::Event::Text-event_0e is MIDI::Event {
 }
 
 class MIDI::Event::Text-event_0f is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.text;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1370,7 +1368,7 @@ class MIDI::Event::Text-event_0f is MIDI::Event {
 }
 
 class MIDI::Event::End-track is MIDI::Event {
-  has $.time;
+  has $.time is rw;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
     Buf.new(0xff, 0x2f, 0x00);
@@ -1378,7 +1376,7 @@ class MIDI::Event::End-track is MIDI::Event {
 }
 
 class MIDI::Event::Set-tempo is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.tempo; # microseconds/quarter note
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1394,7 +1392,7 @@ class MIDI::Event::Set-tempo is MIDI::Event {
 }
 
 class MIDI::Event::Smpte-offset is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.hours;
   has $.minutes;
   has $.seconds;
@@ -1416,7 +1414,7 @@ class MIDI::Event::Smpte-offset is MIDI::Event {
 }
 
 class MIDI::Event::Time-signature is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.numerator;
   has $.denominator;
   has $.ticks;
@@ -1436,7 +1434,7 @@ class MIDI::Event::Time-signature is MIDI::Event {
 }
 
 class MIDI::Event::Key-signature is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.sharps;
   has $.major-minor;
 
@@ -1452,7 +1450,7 @@ class MIDI::Event::Key-signature is MIDI::Event {
 }
 
 class MIDI::Event::Sequencer-specific is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.data;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1466,7 +1464,7 @@ class MIDI::Event::Sequencer-specific is MIDI::Event {
 }
 
 class MIDI::Event::sysex-f0 is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.data;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1479,7 +1477,7 @@ class MIDI::Event::sysex-f0 is MIDI::Event {
 }
  
 class MIDI::Event::sysex-f7 is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.data;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1492,7 +1490,7 @@ class MIDI::Event::sysex-f7 is MIDI::Event {
 }
 
 class MIDI::Event::Song-position is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.beats;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1501,7 +1499,7 @@ class MIDI::Event::Song-position is MIDI::Event {
 }
 
 class MIDI::Event::Song-select is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.song-number;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1513,7 +1511,7 @@ class MIDI::Event::Song-select is MIDI::Event {
 }
 
 class MIDI::Event::Tune-request is MIDI::Event {
-  has $.time;
+  has $.time is rw;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
     Buf.new(0xf6);
@@ -1521,7 +1519,7 @@ class MIDI::Event::Tune-request is MIDI::Event {
 }
 
 class MIDI::Event::Raw is MIDI::Event {
-  has $.time;
+  has $.time is rw;
   has $.command;
   has $.data;
 

@@ -3,6 +3,7 @@ use v6.d;
 unit class MIDI::Opus;
 
 use MIDI::Track;
+use MIDI::Score;
 
 my $Debug = 1;
 my $VERSION = 0.84;
@@ -224,12 +225,12 @@ method quantize(*%options) {
   my @new-tracks = ();
   for @!tracks -> $track {
       my $score = MIDI::Score::events-to-score($track.events);
-      my $new-score = MIDI::Score::quantize($score, grid => $grid, durations => $qd);
-      my $events = MIDI::Score::score-to-events($new-score);
-      my $new-track = MIDI::Track.new(events => $events);
+      my $new-score = $score.quantize(grid => $grid, durations => $qd);
+      my @events = $new-score.events;
+      my $new-track = MIDI::Track.new(events => @events);
       @new-tracks.push: $new-track;
   }
-  self.tracks(@new-tracks);
+  @!tracks = @new-tracks;
 }
 
 ###########################################################################
