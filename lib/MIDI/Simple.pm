@@ -76,12 +76,12 @@ MIDI::Simple - procedural/OOP interface for MIDI composition
 =head1 SYNOPSIS
 
  use MIDI::Simple;
- new_score;
- text_event 'http://www.ely.anglican.org/parishes/camgsm/bells/chimes.html';
- text_event 'Lord through this hour/ be Thou our guide';
- text_event 'so, by Thy power/ no foot shall slide';
- set_tempo 500000;  # 1 qn => .5 seconds (500,000 microseconds)
- patch_change 1, 8;  # Patch 8 = Celesta
+ new-score;
+ text-event 'http://www.ely.anglican.org/parishes/camgsm/bells/chimes.html';
+ text-event 'Lord through this hour/ be Thou our guide';
+ text-event 'so, by Thy power/ no foot shall slide';
+ set-tempo 500000;  # 1 qn => .5 seconds (500,000 microseconds)
+ patch-change 1, 8;  # Patch 8 = Celesta
 
  noop c1, f, o5;  # Setup
  # Now play
@@ -158,7 +158,7 @@ before .700 (but that was a I<looong> time ago).
 
 );
 
-our enum Note (
+our enum Note is export (
  C  =>  0,
  Cs =>  1, Df =>  1, Csharp =>  1, Dflat =>  1,
  D  =>  2,
@@ -306,8 +306,8 @@ For n/r/noop", below.
 
 =end pod
 
-method n(*@args) { # a note
-  my $new-notes = self.parse-options(@args);
+method n(*@args) is export { # a note
+  my $new-notes = .parse-options(@args);
   for $new-notes -> $note {
     # which should presumably not be a null list
     unless $note ~~ /^\d+$/ {
@@ -339,7 +339,7 @@ playing.)
 
 =end pod
 
-method r(*@args) { # a rest
+method r(*@args) is export { # a rest
   self.parse-options(@args);
   $!time += $!duration;
   return;
@@ -355,7 +355,7 @@ other state variables, i.e.: Channel, Duration, Octave, Volume, Notes.
 
 =end pod
 
-method noop(*@args) { # no operation
+method noop(*@args) is export { # no operation
   self.parse-options(@args);
 }
 

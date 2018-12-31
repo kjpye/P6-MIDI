@@ -68,20 +68,20 @@ is $it.text, "so, by Thy power/ no foot shall slide";
 
 $it = @e[1];
 # TODOk scalar( @{ $it = $e[1] } ), 3 or die;  print "# Second event: [@$it]\n";
-ok $it ~~ (MIDI::Event::Set_tempo);
+ok $it ~~ (MIDI::Event::Set-tempo);
 is $it.time,       0;
 ok $it.tempo, 500000;
 
 $it = @e[2];
 # TODO ok scalar( @{ $it = $e[2] } ), 4 or die;  print "# Third event: [@$it]\n";
-ok $it ~~ (MIDI::Event::Patch_change);
+ok $it ~~ (MIDI::Event::Patch-change);
 ok $it.time,         0;
 ok $it.channel,      1;
 ok $it.patch-number, 8;
 
 $it = @e[3];
 # TODO ok scalar( @{ $it = $e[3] } ), 5 or die;  print "# Fourth event: [@$it]\n";
-ok $it ~~ (MIDI::Event::Note_on);
+ok $it ~~ (MIDI::Event::Note-on);
 ok $it.time,         0;
 ok $it.channel,      1;
 ok $it.note-number, 61;
@@ -90,7 +90,7 @@ ok $it.velocity,    96;
 
 $it = @e[4];
 # TODO ok scalar( @{ $it = $e[4] } ), 5 or die;  print "# Fifth event: [@$it]\n";
-ok $it ~~ (MIDI::Event::Note_off);
+ok $it ~~ (MIDI::Event::Note-off);
 ok $it.time,        96;
 ok $it.channel,      1;
 ok $it.note-number, 61;
