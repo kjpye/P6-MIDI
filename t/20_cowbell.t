@@ -8,7 +8,7 @@ use MIDI;
 ok 1;
 
   my $out = "temp20.mid";
-#TODO unlink $out if -e $out;
+  $out.IO.unlink if $out.IO.e;
   {
    my @events = (
      MIDI::Event::Text-event.new( time => 0, text  => Buf.new('MORE COWBELL'.comb>>.ord)),
@@ -29,7 +29,6 @@ ok 1;
    }
 
    my $cowbell-track = MIDI::Track.new( events => @events );
-#dd $cowbell-track;
 ok 1;
    my $opus = MIDI::Opus.new(
    format => 0, ticks => 96, tracks => [ $cowbell-track ] );
@@ -60,10 +59,8 @@ is $o.format, 1;
 ok +@t, 1;
 #ok +@t, 1, "checking track count"  or die;
 
-#  print "# "; dd @t;
   my $t = @t[0];
 ok $t ~~ MIDI::Track;
-#ok $t.type, "MTrk";
 is-deeply $t.type, Buf[uint8].new(0x4d, 0x54, 0x72, 0x6b);
 
 
