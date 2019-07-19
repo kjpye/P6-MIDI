@@ -14,10 +14,7 @@ sub ber($value is copy){
 }
 
 sub signextendbyte($byte) {
-    if $byte +& 0x80 {
-        return $byte - 256;
-    }
-    $byte;
+    $byte +& 0x80 ?? $byte - 256 !! $byte;
 }
 
 sub getint24($data, $pointer) {
@@ -81,6 +78,8 @@ class MIDI::Event {
 
 #  has $.time is rw = 0; # usually delta time, sometimes absolute time
 
+    ### TODO: fix doco
+    
 =begin pod
 =head1 NAME
 
@@ -89,13 +88,13 @@ MIDI::Event - MIDI events
 =head1 SYNOPSIS
 
   # Dump a MIDI file's text events
-  die "No filename" unless @ARGV;
+  die "No filename" unless @ARGS;
   use MIDI;  # which "use"s MIDI::Event;
-  MIDI::Opus.new( {
-     "from_file"                => $ARGV[0],
+  MIDI::Opus.new(
+     "from_file"                => @ARGS[0],
      "exclusive_event_callback" => sub{print "$_[2]\n"},
-     "include"                  => \@MIDI::Event::Text_events
-   } ); # These options percolate down to MIDI::Event::decode
+     "include"                  => \@MIDI::Event::Text-events
+  ); # These options percolate down to MIDI::Event::decode
   exit;
 
 =head1 DESCRIPTION
@@ -150,20 +149,47 @@ the combination of all the above lists.
 # Some public-access lists:
 
 my @MIDI-events = <
-  note_off            note_on            key_after_touch     control_change patch_change
-  channel_after_touch pitch_wheel_change set_sequence_number
+  note_off
+  note_on
+  key_after_touch
+  control_change patch_change
+  channel_after_touch
+  pitch_wheel_change
+  set_sequence_number
 >;
 
 my @Text-events = <
-  text_event    copyright_text_event track_name    instrument_name lyric
-  marker        cue_point            text_event_08 text_event_09   text_event_0a
-  text_event_0b text_event_0c        text_event_0d text_event_0e   text_event_0f
+  text_event
+  copyright_text_event
+  track_name
+  instrument_name
+  lyric
+  marker
+  cue_point
+  text_event_08
+  text_event_09
+  text_event_0a
+  text_event_0b
+  text_event_0c
+  text_event_0d
+  text_event_0e
+  text_event_0f
 >;
 
 my @Nontext-meta-events = <
-  end_track          set_tempo      smpte_offset time_signature key_signature
-  sequencer_specific raw_meta_event sysex_f0     sysex_f7       song_position
-  song_select        tune_request   raw_data
+  end_track
+  set_tempo
+  smpte_offset
+  time_signature
+  key_signature
+  sequencer_specific
+  raw_meta_event
+  sysex_f0
+  sysex_f7
+  song_position
+  song_select
+  tune_request
+  raw_data
 >;
 
 # Actually, 'tune_request', for one, is an F-series event, not a
@@ -177,14 +203,14 @@ my @All-events = (@MIDI-events, @Meta-events).flat;
 This module provides three functions of interest, which all act upon
 event structures.  As an end user, you probably don't need to use any
 of these directly, but note that options you specify for
-MIDI::Opus->new with a from_file or from_handle options will percolate
+MIDI::Opus.new with a from_file or from_handle options will percolate
 down to these functions; so you should understand the options for the
 first two of the below functions.  (The casual user should merely skim
 this section.)
 
 =over
 
-=item MIDI::Event::decode( \$data, { ...options... } )
+=item MIDI::Event::decode( $data, ...options... )
 
 This takes a Buf containing binary MIDI data and decodes it into a
 new event structure (a LoL), a I<reference> to which is returned.
@@ -281,7 +307,7 @@ sequencer that doesn't understand running status.
 Note: If you're encoding just a single event at a time or less than a
 whole trackful in any case, then you probably want something like:
 
-          $data_r = MIDI::Event::encode(
+          $data = MIDI::Event::encode(
             [
               MIDI::Event::Note-on.new(time => 141,
                                        channel => 4,
@@ -327,7 +353,7 @@ method copy-structure {
 sub read-u14-bit($in) {
   # Decodes to a value 0 to 16383, as is used for some event encoding
   my ($b1, $b2) = $in.comb;
-  return ($b1.ord | ($b2.ord +< 7));
+  $b1.ord +| ($b2.ord +< 7);
 }
 
 ###########################################################################
@@ -352,7 +378,7 @@ our sub decode(Buf $data, *%options) { # decode track data into an array of even
   # Returns an array of events.
   # Note that this is a function call, not a constructor method call.
 
-    note "Entering MIDI::Event::decode" if $Debug;
+  note "Entering MIDI::Event::decode" if $Debug;
     
   my @events = ();
 
