@@ -326,7 +326,7 @@ method copy-structure {
 
 sub read-u14-bit($in) {
   # Decodes to a value 0 to 16383, as is used for some event encoding
-  my ($b1, $b2) = $in.comb;
+  my ($b1, $b2) = $in.list;
   return ($b1.ord | ($b2.ord +< 7));
 }
 
@@ -479,8 +479,8 @@ And these are the events:
 	    } else {
 		# It's a running status mofo -- just use last $event-code value
 		if $event-code < 0 {
-		    fail "Uninterpretable use of running status; Aborting track."
-		    if $Debug;
+#		    fail "Uninterpretable use of running status; Aborting track."
+#		    if $Debug;
 		    last Event;
 	}
 		# Let the argument-puller-offer move Pointer.
@@ -802,11 +802,19 @@ And these are the events:
 
 =end pod
 			  when 0x59 {
+my $sharps = $data.read-uint8($Pointer++);
+my $major-minor = $data.read-uint8($Pointer++);
+#note "Calling MIDI::Event::Key-signature with time：$time, sharps：$sharps, mm:$major-minor";
 			    $E = MIDI::Event::Key-signature.new(
 								time        => $time,
-								sharps      => $data.getint8($Pointer++);
-								major-minor => $data.getint8($Pointer++),
+								sharps      => $sharps,
+								major-minor => $major-minor,
 							       );
+#			    $E = MIDI::Event::Key-signature.new(
+#								time        => $time,
+#								sharps      => $data.read-uint8($Pointer++);
+#								major-minor => $data.read-uint8($Pointer++),
+#							       );
 			  }
 
 =begin pod
@@ -1414,7 +1422,7 @@ class MIDI::Event::Time-signature is MIDI::Event {
 }
 
 class MIDI::Event::Key-signature is MIDI::Event {
-  has $.time is rw;
+  has $.time;
   has $.sharps;
   has $.major-minor;
 
