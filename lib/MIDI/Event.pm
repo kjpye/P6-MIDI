@@ -91,9 +91,9 @@ MIDI::Event - MIDI events
   die "No filename" unless @ARGS;
   use MIDI;  # which "use"s MIDI::Event;
   MIDI::Opus.new(
-     "from_file"                => @ARGS[0],
-     "exclusive_event_callback" => sub{print "$_[2]\n"},
-     "include"                  => \@MIDI::Event::Text-events
+     from-file                => @ARGS[0],
+     exclusive-event-callback => sub{print "$_[2]\n"},
+     include                  => @MIDI::Event::Text-events
   ); # These options percolate down to MIDI::Event::decode
   exit;
 
@@ -101,17 +101,14 @@ MIDI::Event - MIDI events
 
 Functions and lists to do with MIDI events and MIDI event structures.
 
-An event is a list, like:
+An event is object, with each event type ab object in a different class, like:
 
-  ( 'note_on', 141, 4, 50, 64 )
+              MIDI::Event::Note-on(time => 141,
+                                   channel => 4,
+                                   note=number => 50,
+                                   velocity => 64)
 
-where the first element is the event name, the second is the
-delta-time, and the remainder are further parameters, per the
-event-format specifications below.
-
-An I<event structure> is a list of references to such events -- a
-"LoL".  If you don't know how to deal with LoLs, you I<must> read
-L<perllol>.
+An I<event structure> is a list of such events -- an array of objects.
 
 =head1 GOODIES
 
@@ -120,22 +117,22 @@ provides a few lists:
 
 =over
 
-=item @MIDI_events
+=item @MIDI-events
 
-a list of all "MIDI events" AKA voice events -- e.g., 'note_on'
+a list of all "MIDI events" AKA voice events -- e.g., 'note-on'
 
-=item @Text_events
+=item @Text-events
 
-a list of all text meta-events -- e.g., 'track_name'
+a list of all text meta-events -- e.g., 'track-name'
 
-=item @Nontext_meta_events
+=item @Nontext-meta-events
 
-all other meta-events (plus 'raw_data' and F-series events like
-'tune_request').
+all other meta-events (plus 'raw-data' and F-series events like
+'tune-request').
 
 =item @Meta-events
 
-the combination of Text_events and Nontext_meta_events.
+the combination of Text-events and Nontext-meta-events.
 
 =item @All-events
 
@@ -149,50 +146,51 @@ the combination of all the above lists.
 # Some public-access lists:
 
 my @MIDI-events = <
-  note_off
-  note_on
-  key_after_touch
-  control_change patch_change
-  channel_after_touch
-  pitch_wheel_change
-  set_sequence_number
+  note-off
+  note-on
+  key-after-touch
+  control-change
+  patch-change
+  channel-after-touch
+  pitch-wheel-change
+  set-sequence-number
 >;
 
 my @Text-events = <
-  text_event
-  copyright_text_event
-  track_name
-  instrument_name
+  text-event
+  copyright-text-event
+  track-name
+  instrument-name
   lyric
   marker
-  cue_point
-  text_event_08
-  text_event_09
-  text_event_0a
-  text_event_0b
-  text_event_0c
-  text_event_0d
-  text_event_0e
-  text_event_0f
+  cu-_point
+  text-event-08
+  text-event-09
+  text-event-0a
+  text-event-0b
+  text-event-0c
+  text-event-0d
+  text-event-0e
+  text-event-0f
 >;
 
 my @Nontext-meta-events = <
-  end_track
-  set_tempo
-  smpte_offset
-  time_signature
-  key_signature
-  sequencer_specific
-  raw_meta_event
-  sysex_f0
-  sysex_f7
-  song_position
-  song_select
-  tune_request
-  raw_data
+  end-track
+  set-tempo
+  smpte-offset
+  time-signature
+  key-signature
+  sequencer-specific
+  raw-meta-event
+  sysex-f0
+  sysex-f7
+  song-position
+  song-select
+  tune-request
+  raw-data
 >;
 
-# Actually, 'tune_request', for one, is an F-series event, not a
+# Actually, 'tune-request', for one, is an F-series event, not a
 #  strictly-speaking meta-event
 my @Meta-events = (@Text-events, @Nontext-meta-events).flat;
 my @All-events = (@MIDI-events, @Meta-events).flat;
@@ -218,19 +216,19 @@ Options are:
 
 =over 16
 
-=item 'include' => LISTREF
+=item 'include' => LIST
 
-I<If specified>, listref is interpreted as a reference to a list of
-event names (e.g., 'cue_point' or 'note_off') such that only these
+I<If specified>, list is interpreted as a list of
+event names (e.g., 'cue-point' or 'note-off') such that only these
 events will be parsed from the binary data provided.  Events whose
 names are NOT in this list will be ignored -- i.e., they won't end up
 in the event structure, and they won't be each passed to any callbacks
 you may have specified.
 
-=item 'exclude' => LISTREF
+=item 'exclude' => LIST
 
-I<If specified>, listref is interpreted as a reference to a list of
-event names (e.g., 'cue_point' or 'note_off') that will NOT be parsed
+I<If specified>, list is interpreted as a list of
+event names (e.g., 'cue-point' or 'note-off') that will NOT be parsed
 from the binary stream; they'll be ignored -- i.e., they won't end up
 in the event structure, and they won't be passed to any callbacks you
 may have specified.  Don't specify both an include and an exclude
@@ -240,63 +238,62 @@ include/exclude functionality mainly so you can scan a file rather
 efficiently for just a few specific event types, e.g., just text
 events, or just sysexes.
 
-=item 'no_eot_magic' => 0 or 1
+=item 'no-eot-magic' => 0 or 1
 
-See the description of C<'end_track'>, in "EVENTS", below.
+See the description of C<'end-track'>, in "EVENTS", below.
 
-=item 'event_callback' => CODEREF
+=item 'event-callback' => CODE
 
 If defined, the code referred to (whether as C<\&wanted> or as
 C<sub { BLOCK }>) is called on every event after it's been parsed into
 an event list (and any EOT magic performed), but before it's added to
 the event structure.  So if you want to alter the event stream on the
 way to the event structure (which counts as deep voodoo), define
-'event_callback' and have it modify its C<@_>.
+'event-callback' and have it modify its C<@_>.
 
-=item 'exclusive_event_callback' => CODEREF
+=item 'exclusive-event-callback' => CODE
 
-Just like 'event_callback'; but if you specify this, the callback is
+Just like 'event-callback'; but if you specify this, the callback is
 called I<instead> of adding the events to the event structure.  (So
 the event structure returned by decode() at the end will always be
 empty.)  Good for cases like the text dumper in the Synopsis, above.
 
 =back
 
-=item MIDI::Event::encode( \@events, {...options...})
+=item MIDI::Event::encode( @events, {...options...})
 
-This takes a I<reference> to an event structure (a LoL) and encodes it
-as binary data, which it returns a I<reference> to.  Options:
+This takes an event structure (an array of Nidi::Event objects) and encodes it
+as binary data, which it returns in a Buf.  Options:
 
 =over 16
 
-=item 'unknown_callback' => CODEREF
+=item 'unknown-callback' => CODE
 
-If this is specified, it's interpreted as a reference to a subroutine
-to be called when an unknown event name (say, 'macro_10' or
+If this is specified, it's a subroutine
+to be called when an unknown event name (say, 'macro-10' or
 something), is seen by encode().  The function is fed all of the event
 (its name, delta-time, and whatever parameters); the return value of
 this function is added to the encoded data stream -- so if you don't
 want to add anything, be sure to return ''.
 
-If no 'unknown_callback' is specified, encode() will C<warn> (well,
-C<carp>) of the unknown event.  To merely block that, just set
-'unknown_callback' to C<sub{return('')}>
+If no 'unknown-callback' is specified, encode() will C<warn> of the unknown event.  To merely block that, just set
+'unknown-callback' to C<sub{return('')}>
 
-=item 'no_eot_magic' => 0 or 1
+=item 'no-eot-magic' => 0 or 1
 
 Determines whether a track-final 0-length text event is encoded as
-a end-track event -- since a track-final 0-length text event probably
+an end-track event -- since a track-final 0-length text event probably
 started life as an end-track event read in by decode(), above.
 
-=item 'never_add_eot' => 0 or 1
+=item 'never-add-eot' => 0 or 1
 
 If 1, C<encode()> never ever I<adds> an end-track (EOT) event to the
 encoded data generated unless it's I<explicitly> there as an
-'end_track' in the given event structure.  You probably don't ever
+'end-track' in the given event structure.  You probably don't ever
 need this unless you're encoding for I<straight> writing to a MIDI
 port, instead of to a file.
 
-=item 'no_running_status' => 0 or 1
+=item 'no-running-status' => 0 or 1
 
 If 1, disables MIDI's "running status" compression.  Probably never
 necessary unless you need to feed your MIDI data to a strange old
@@ -314,17 +311,17 @@ whole trackful in any case, then you probably want something like:
                                        note-number => 50,
                                        velocity => 64)
             ],
-            'never_add_eot' => 1 );
+            'never-add-eot' => 1 );
 
 which just encodes that one event I<as> an event structure of one
-event -- i.e., an LoL that's just a list of one list.
+event -- i.e., an array thatconsistes of only one element.
 
 But note that running status will not always apply when you're
 encoding less than a whole trackful at a time, since running status
 works only within a LoL encoded all at once.  This'll result in
 non-optimally compressed, but still effective, encoding.
 
-=item MIDI::Event::copy_structure()
+=item MIDI::Event::copy-structure()
 
 This takes an event structure, and returns a copy of it.  If you're
 thinking about using this, you probably should want to use the more
@@ -362,7 +359,7 @@ my $last-status = -1;
 
 method write-u14-bit($in) {
     # encode a 14 bit quantity, as needed for some events
-    ($in +& 0x7F) +| (($in +> 7) +& 0x7F)
+    Buf.new($in +& 0x7F, ($in +> 7) +& 0x7F)
 }
 
   ###########################################################################
@@ -407,9 +404,9 @@ our sub decode(Buf $data, *%options) { # decode track data into an array of even
 					 # TODO
 					}
 
-    my $Pointer = 0;		# points to where I am in the data
+    my $Pointer = 0;		# points to where we are in the data
   ######################################################################
-  if $Debug == 1 {
+  if $Debug  ≥ 1 {
     note "Track data of ", $data.bytes, " bytes.";
   }
 
@@ -419,8 +416,6 @@ our sub decode(Buf $data, *%options) { # decode track data into an array of even
 =head2 DATA TYPES
 
 Events use these data types:
-
-=over
 
 =item channel = a value 0 to 15
 
@@ -436,22 +431,22 @@ Events use these data types:
 
 =item sequence = a value 0 to 65,535 (0xFFFF)
 
-=item text = a string of 0 or more bytes of of ASCII text
+=item text = a string of 0 or more bytes of ASCII text
 
 =item raw = a string of 0 or more bytes of binary data
 
-=item pitch_wheel = a value -8192 to 8191 (0x1FFF)
+=item pitch-wheel = a value -8192 to 8191 (0x1FFF)
 
-=item song_pos = a value 0 to 16,383 (0x3FFF)
+=item song-pos = a value 0 to 16,383 (0x3FFF)
 
-=item song_number = a value 0 to 127
+=item song-number = a value 0 to 127
 
 =item tempo = microseconds, a value 0 to 16,777,215 (0x00FFFFFF)
 
 =back
 
 For data types not defined above, (e.g., I<sf> and I<mi> for
-C<'key_signature'>), consult L<MIDI::Filespec> and/or the source for
+C<'key-signature'>), consult L<MIDI::Filespec> and/or the source for
 C<MIDI::Event.pm>.  And if you don't see it documented, it's probably
 because I don't understand it, so you'll have to consult a real MIDI
 reference.
@@ -460,11 +455,9 @@ reference.
 
 And these are the events:
 
-=over
-
 =end pod
 
-  # Things I use variously, below.  They're here just for efficiency's sake,
+  # Things used variously, below.  They're here just for efficiency's sake,
   # to avoid re-mying on each iteration.
   my ($command, $channel, $parameter, $length, $time, $remainder);
 
@@ -490,7 +483,7 @@ And these are the events:
     # Now let's see what we can make of the command
     my $first-byte = $data[$Pointer];
     # Whatever parses $first-byte is responsible for moving $Pointer
-    #  forward.
+    # forward.
     #!#print "Event \# $event_count: $first-byte at track-offset $Pointer\n"
     #!#  if $Debug > 1;
 
@@ -498,7 +491,7 @@ And these are the events:
 
     given $first-byte {
 	when ^0xf0 {
-	    if $first-byte >= 0x80 {
+	    if $first-byte ≥ 0x80 {
 		print "Explicit event $first-byte" if $Debug > 2;
 		++$Pointer;		# It's an explicit event.
 		$event-code = $first-byte;
@@ -527,7 +520,7 @@ And these are the events:
 	    # MIDI events
 	    
 =begin pod
-=item ('note_off', I<dtime>, I<channel>, I<note>, I<velocity>)
+=item MIDI::Event::Note-off(I<dtime>, I<channel>, I<note>, I<velocity>)
 
 =end pod
             given $command {
@@ -543,7 +536,7 @@ And these are the events:
 	      }
 	      
 =begin pod
-=item ('note_on', I<dtime>, I<channel>, I<note>, I<velocity>)
+=item MIDI::Event::Note-on(I<dtime>, I<channel>, I<note>, I<velocity>)
 
 =end pod
               when 0x90 {
@@ -557,7 +550,7 @@ And these are the events:
               }
 
 =begin pod
-=item ('key_after_touch', I<dtime>, I<channel>, I<note>, I<velocity>)
+=item MIDILLEvent::Ley_after_touch(I<dtime>, I<channel>, I<note>, I<velocity>)
 
 =end pod
               when 0xA0 {
@@ -571,7 +564,7 @@ And these are the events:
               }
 
 =begin pod
-=item ('control_change', I<dtime>, I<channel>, I<controller(0-127)>, I<value(0-127)>)
+=item MIDI::Event::Control_change(I<dtime>, I<channel>, I<controller(0-127)>, I<value(0-127)>)
 
 =end pod
               when 0xB0 {
@@ -584,7 +577,7 @@ And these are the events:
 		  );
               }
 =begin pod
-			=item ('patch_change', I<dtime>, I<channel>, I<patch>)
+			=item MIDI::Event::Patch-change(I<dtime>, I<channel>, I<patch>)
 
 =end pod
               when 0xC0 {
@@ -597,7 +590,7 @@ And these are the events:
               }
 
 =begin pod
-=item ('channel_after_touch', I<dtime>, I<channel>, I<velocity>)
+=item MIDI::Event::Channel_after_touch(I<dtime>, I<channel>, I<velocity>)
 
 =end pod
               when 0xD0 {
@@ -608,7 +601,7 @@ And these are the events:
 		  );
               }
 =begin pod
-=item ('pitch_wheel_change', I<dtime>, I<channel>, I<pitch_wheel>)
+=item MIDI::Event::Pitch-wheel-change', I<dtime>, I<channel>, I<pitch_wheel>)
 
 =end pod
               when 0xE0 {
@@ -633,7 +626,7 @@ And these are the events:
       $length = getcompint($data, $Pointer);
 
 =begin pod
-=item ('set_sequence_number', I<dtime>, I<sequence>)
+=item MIDI::Event::Set-sequence-number(I<dtime>, I<sequence-number>)
 
 =end pod
       given $command {
@@ -648,35 +641,35 @@ And these are the events:
 			  # Defined text events ----------------------------------------------
 
 =begin pod
-=item ('text_event', I<dtime>, I<text>)
+=item MIDI::Event::Text-event(I<dtime>, I<text>)
 
-=item ('copyright_text_event', I<dtime>, I<text>)
+=item MIDI::Event::Copyright-text-event(I<dtime>, I<text>)
 
-=item ('track_name', I<dtime>, I<text>)
+=item MIDI::Event::Track-name(I<dtime>, I<text>)
 
-=item ('instrument_name', I<dtime>, I<text>)
+=item MIDI::Event::Instrument_name(I<dtime>, I<text>)
 
-=item ('lyric', I<dtime>, I<text>)
+=item MIDI::Event::Lyric(I<dtime>, I<text>)
 
-=item ('marker', I<dtime>, I<text>)
+=item MIDI::Event::Marker(I<dtime>, I<text>)
 
-=item ('cue_point', I<dtime>, I<text>)
+=item MIDI::Event::Cue-point(I<dtime>, I<text>)
 
-=item ('text_event_08', I<dtime>, I<text>)
+=item MIDI::Event::Text-event_08(I<dtime>, I<text>)
 
-=item ('text_event_09', I<dtime>, I<text>)
+=item MIDI::Event::Text-event_09(I<dtime>, I<text>)
 
-=item ('text_event_0a', I<dtime>, I<text>)
+=item MIDI::Event::Text-event_0a)I<dtime>, I<text>)
 
-=item ('text_event_0b', I<dtime>, I<text>)
+=item MIDI::Event::Text-event_0b(I<dtime>, I<text>)
 
-=item ('text_event_0c', I<dtime>, I<text>)
+=item MIDI::Event::Text-event_0c(I<dtime>, I<text>)
 
-=item ('text_event_0d', I<dtime>, I<text>)
+=item MIDI::Event::Text-event_0d(I<dtime>, I<text>)
 
-=item ('text_event_0e', I<dtime>, I<text>)
+=item MIDI::Event::Text-event_0e(I<dtime>, I<text>)
 
-=item ('text_event_0f', I<dtime>, I<text>)
+=item MIDILLEvent::Text-event_0f(I<dtime>, I<text>)
 
 =end pod
 			  when 0x01 {
@@ -770,7 +763,7 @@ And these are the events:
 			  # Now the sticky events ---------------------------------------------
 
 =begin pod
-=item ('end_track', I<dtime>)
+=item MIDI::Event::End-track(I<dtime>)
 
 =end pod
 			  when 0x2F {
@@ -782,7 +775,7 @@ And these are the events:
 			  }
 
 =begin pod
-=item ('set_tempo', I<dtime>, I<tempo>)
+=item MIDI::Event::Set-tempo(I<dtime>, I<tempo>)
 
 =end pod
 
@@ -794,7 +787,7 @@ And these are the events:
 			  }
 
 =begin pod
-=item ('smpte_offset', I<dtime>, I<hr>, I<mn>, I<se>, I<fr>, I<ff>)
+=item MIDI::Event::Smpte_offset(I<dtime>, I<hr>, I<mn>, I<se>, I<fr>, I<ff>)
 
 =end pod
 
@@ -810,7 +803,7 @@ And these are the events:
 			  }
 
 =begin pod
-=item ('time_signature', I<dtime>, I<nn>, I<dd>, I<cc>, I<bb>)
+=item MIDI::Event::Time-signature(I<dtime>, I<nn>, I<dd>, I<cc>, I<bb>)
 
 =end pod
 			  when 0x58 {
@@ -824,27 +817,19 @@ And these are the events:
 			  }
 
 =begin pod
-=item ('key_signature', I<dtime>, I<sf>, I<mi>)
+=item MIDI::Event::Key-signature(I<dtime>, I<sf>, I<mi>)
 
 =end pod
 			  when 0x59 {
-my $sharps = $data.read-uint8($Pointer++);
-my $major-minor = $data.read-uint8($Pointer++);
-#note "Calling MIDI::Event::Key-signature with time：$time, sharps：$sharps, mm:$major-minor";
 			    $E = MIDI::Event::Key-signature.new(
 								time        => $time,
-								sharps      => $sharps,
-								major-minor => $major-minor,
+								sharps      => $data.read-uint8($Pointer++),
+								major-minor => $data.read-uint8($Pointer++)
 							       );
-#			    $E = MIDI::Event::Key-signature.new(
-#								time        => $time,
-#								sharps      => $data.read-uint8($Pointer++);
-#								major-minor => $data.read-uint8($Pointer++),
-#							       );
 			  }
 
 =begin pod
-=item ('sequencer_specific', I<dtime>, I<raw>)
+=item MIDI::Event::Sequencer-specific(I<dtime>, I<raw>)
 
 =end pod
 			  when 0x7F {
@@ -855,7 +840,7 @@ my $major-minor = $data.read-uint8($Pointer++);
 			  }
 
 =begin pod
-=item ('raw_meta_event', I<dtime>, I<command>(0-255), I<raw>)
+=item MIDI:E:vent::Raw-meta-event(I<dtime>, I<command>(0-255), I<raw>)
 
 =end pod
 			  default {
@@ -875,7 +860,7 @@ note "Unhandled command $_";
 
 	######################################################################
     }
-    when 0xF0 | 0xf7 { # It's a SYSEX
+    when 0xf0 | 0xf7 { # It's a SYSEX
 	  # Note that sysexes in MIDI /files/ are different than sysexes in
 	  #  MIDI transmissions!!
 	  # << The vast majority of system exclusive messages will just use the F0
@@ -890,9 +875,9 @@ note "Unhandled command $_";
 	  $length  = getcompint($data, $Pointer);
 
 =begin pod
-=item ('sysex_f0', I<dtime>, I<raw>)
+=item MIDI::Event::Sysex-f0*I<dtime>, I<raw>)
 
-=item ('sysex_f7', I<dtime>, I<raw>)
+=item MIDI::Event::Sysex-f7(I<dtime>, I<raw>)
 
 =end pod
 	      given $first-byte {
@@ -934,7 +919,7 @@ note "Unhandled command $_";
 		}
 
 =begin pod
-=item ('song_position', I<dtime>)
+=item MIDI::Event::Song-position(I<dtime>)
 
 =end pod
 		#  <song position msg> ::=     F2 <data pair>
@@ -948,7 +933,7 @@ note "Unhandled command $_";
 		}
 
 =begin pod
-=item ('song_select', I<dtime>, I<song_number>)
+=item MIDI::Event:Song-select(I<dtime>, I<song_number>)
 
 =end pod
 		#  <song select msg> ::=       F3 <data singlet>
@@ -964,7 +949,7 @@ note "Unhandled command $_";
 		}
 
 =begin pod
-=item ('tune_request', I<dtime>)
+=item MIDI::Event::Tune-request(I<dtime>)
 
 =end pod
 		#  <tune request> ::=          F6
@@ -999,11 +984,11 @@ note "Unhandled command $_";
 		# f4 f5 f9 fd -- unallocated
 
 =begin pod
-=item ('raw_data', I<dtime>, I<raw>)
+=item MIDI::Event::Raw-data(I<dtime>, I<raw>)
 
 =end pod
 # Here we only produce a one-byte piece of raw data.
-# But the encoder for 'raw_data' accepts any length of it.
+# But the encoder for 'raw-data' accepts any length of it.
 		default {
 		  $E = MIDI::Event::Raw.new(
 					    command => $first-byte,
@@ -1028,8 +1013,6 @@ note "Unhandled command $_";
 
 	  #####################################################################
 	  ######################################################################
-	  ##
-	  #   By the Power of Greyskull, I AM THE EVENT REGISTRAR!
 	  ##
 	  if $E ~~ (MIDI::Event::End-track) {
 	    # This is the code for exceptional handling of the EOT event.
