@@ -1,0 +1,105 @@
+use v6.d
+
+use Test;
+plan 51;
+
+ok 1;
+use MIDI;
+
+my $out = 'temp30.mid';
+
+{
+ use MIDI::Simple;
+ new-score;
+ my @Score = ();
+
+ text-event 'so, by Thy power/ no foot shall slide';
+ set-tempo 500000;  # 1 qn => .5 seconds (500,000 microseconds)
+ patch-change 1, 8;  # Patch 8 = Celesta
+
+ noop c1, f, o5;  # Setup
+ # Now play
+ n qn, Cs;    n F;   n Ds;  n hn, Gs_d1;
+ n qn, Cs;    n Ds;  n F;   n hn, Cs;
+ n qn, F;     n Cs;  n Ds;  n hn, Gs_d1;
+ n qn, Gs_d1; n Ds;  n F;   n hn, Cs;
+
+ write-score $out;
+ ok 1;
+}
+
+sleep 1; #  "IT'S OH SO QUIET.  SHHHHHHH.  SHHHHHHH.  IT'S OH SO STILL."
+ok $out.IO.e or die;
+ok $out.IO.s;
+ok $out.IO.s > 200;
+ok $out.IO.s < 400;
+
+my $o = MIDI::Opus.new( from-file => $out );
+ok 1;
+print "# Opus: [$o]\n";
+ok ref($o), "MIDI::Opus", "checking opus classitude"; # sanity
+is $o.ticks, 96;
+$o.ticks = 123;
+is $o.ticks, 123;
+ok $o.format, 0;
+$o.format(1);
+ok $o.format, 1;
+
+my @t = $o.tracks;
+print "# Tracks: [@t]\n";
+is +@t, 1, "checking track count"  or die;
+
+my $t = @t[0];
+ok $t ~~ (MIDI::Track);
+is $t.type, Buf.new('MTrk'.comb>>.ord);
+
+
+ok $o.tracks.defined;
+
+my $it; # just a scratch var
+
+my @e = $t.events;
+ok @e[0] ~~ (MIDI::Event::Text-event) or die;
+$it = @e[0];
+# TODO ok scalar( @{ $it = $e[0] } ), 3 or die;  print "# First event: [@$it]\n";
+is $it.time, 0;
+is $it.text, "so, by Thy power/ no foot shall slide";
+
+
+$it = @e[1];
+# TODOk scalar( @{ $it = $e[1] } ), 3 or die;  print "# Second event: [@$it]\n";
+ok $it ~~ (MIDI::Event::Set-tempo);
+is $it.time,       0;
+ok $it.tempo, 500000;
+
+$it = @e[2];
+# TODO ok scalar( @{ $it = $e[2] } ), 4 or die;  print "# Third event: [@$it]\n";
+ok $it ~~ (MIDI::Event::Patch-change);
+ok $it.time,         0;
+ok $it.channel,      1;
+ok $it.patch-number, 8;
+
+$it = @e[3];
+# TODO ok scalar( @{ $it = $e[3] } ), 5 or die;  print "# Fourth event: [@$it]\n";
+ok $it ~~ (MIDI::Event::Note-on);
+ok $it.time,         0;
+ok $it.channel,      1;
+ok $it.note-number, 61;
+ok $it.velocity,    96;
+
+
+$it = @e[4];
+# TODO ok scalar( @{ $it = $e[4] } ), 5 or die;  print "# Fifth event: [@$it]\n";
+ok $it ~~ (MIDI::Event::Note-off);
+ok $it.time,        96;
+ok $it.channel,      1;
+ok $it.note-number, 61;
+ok $it.velocity,     0;
+
+$t.type = Buf.new('Muck'.comb<<.ord);
+is-deeply $t.type, Buf.new('Muck'.comb>>.ord);
+
+unlink $out;
+print "# Okay, all done!\n";
+ok 1;
+

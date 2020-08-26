@@ -633,80 +633,90 @@ method parse-options(*@args) { # common parser for n/r/noop options
   for @args -> $arg {
     next unless $arg.chars; # sanity check
 
-    if $arg      ~~ m<^ d (\d+) $> {   # numeric duration spec
-      $!duration = $1;
-    } elsif $arg ~~ m<^ [vV] (\d+) $> {   # numeric volume spec
-      fail "Volume out of range: $1" if $1 > 127;
-      $!volume = $1;
-    } elsif $arg eq 'rest' {         # 'rest' clears the note list
+    given $arg {
+      when m<^ d (\d+) $> {   # numeric duration spec
+        $!duration = $0;
+      }
+      when m<^ [vV] (\d+) $> {   # numeric volume spec
+        fail "Volume out of range: $0" if $0 > 127;
+        $!volume = $1;
+      }
+      when 'rest' {         # 'rest' clears the note list
 	@new-notes = ();
-    } elsif $arg ~~ m<^ c (\d+) $> {   # channel spec
-      fail "Channel out of range: $1" if $1 > 15;
-      $!channel = $1;
-    } elsif $arg ~~ m<^ o (\d+) $> {   # absolute octave spec
-      fail "Octave out of range: \"$1\" in \"$arg\"" if $1 > 10;
-      $!octave = int($1);
-    } elsif $arg ~~ m<^ n? (\d+) $> {  # numeric note spec
-      # note that the "n" is optional
-      fail "Note out of range: $1" if $1 > 127;
-      @new-notes.push: $1;
-      $!octave = ($1 / 12).Int;
+      }
+      when m<^ c (\d+) $> {   # channel spec
+        fail "Channel out of range: $0" if $0 > 15;
+        $!channel = $0;
+      }
+      when m<^ o (\d+) $> {   # absolute octave spec
+        fail "Octave out of range: \"$0\" in \"$arg\"" if $0 > 10;
+        $!octave = $0.Int;
+      }
+      when m<^ n? (\d+) $> {  # numeric note spec
+        # note that the "n" is optional
+        fail "Note out of range: $0" if $0 > 127;
+        @new-notes.push: $0;
+        $!octave = ($0 / 12).Int;
+      }
 
     # The more complex ones follow...
 
-    } elsif %volume{$arg}.exists {   # volume spec
-      $!volume = %volume{$arg};
-
-    } elsif %length{$arg}.exists {   # length spec
-      $!duration = $!tempo * %length{$arg};
-
-    } elsif $arg ~~ m<^ o_d (\d+) $> {    # rel (down) octave spec
-      $!octave -= $1.Int;
-      $!octave =  0 if $!octave <  0;
-      $!octave = 10 if $!octave > 10;
-
-    } elsif $arg ~~ m<^ o_u (\d+) $> {    # rel (up) octave spec
-      $!octave += $1.Int;
-      $!octave =  0 if $!octave <  0;
-      $!octave = 10 if $!octave > 10;
-
-    } elsif $arg ~~ m<^ ( <[A..Z a..z \x80..\xFF]>+ ) (_<[du]>)? (\d+)? $> # FIXME
-             and $0 ~~ (Note)
-    {
-      my $note = $0;
-      my $octave = $!octave;
-      my $o_spec = $1;
-      say "note<$0> => <$note> ; octave_spec<$1> Octave<$octave>"
-        if $Debug;
-
-      if ! ($o_spec.defined && $o_spec) {
-         # it's a bare note like "C" or "Bflat"
-        # noop
-      } elsif $o_spec ~~ m<^ (\d+) $> {      # absolute! (alphanumeric)
-        $!octave = $octave = $0;
-        fail "Octave out of range: \"$0\" in \"$arg\"" if $0 > 10;
-      } elsif $o_spec ~~ m<^ _d (\d+) $> {    # relative with _dN
-        $octave -= $0;
-        $octave = 0 if $octave < 0;
-      } elsif $o_spec ~~ m<^ _u (\d+) $> {    # relative with _uN
-        $octave += $0;
-        $octave = 10 if $octave > 10;
-      } else {
-        die "Unexpected error 5176123";
+      when %volume{$arg}.exists {   # volume spec
+        $!volume = %volume{$arg};
       }
+      when %length{$arg}.exists {   # length spec
+      $!duration = $!tempo * %length{$arg};
+      }
+      when m<^ o_d (\d+) $> {    # rel (down) octave spec
+        $!octave -= $0.Int;
+        $!octave =  0 if $!octave <  0;
+        $!octave = 10 if $!octave > 10;
+      }
+      when  m<^ o_u (\d+) $> {    # rel (up) octave spec
+        $!octave += $0.Int;
+        $!octave =  0 if $!octave <  0;
+        $!octave = 10 if $!octave > 10;
+      }
+      when m<^ ( <[A..Z a..z \x80..\xFF]>+ ) (_<[du]>)? (\d+)? $> # FIXME
+             and $0 ~~ (Note)
+      {
+        my $note = $0;
+        my $octave = $!octave;
+        my $o_spec = $1;
+        say "note<$0> => <$note> ; octave_spec<$1> Octave<$octave>"
+          if $Debug;
 
-      my $note_value = ($note + $octave * 12).Int;
+          if ! ($o_spec.defined && $o_spec) {
+           # it's a bare note like "C" or "Bflat"
+          # noop
+      
+          } elsif $o_spec ~~ m<^ (\d+) $> {      # absolute! (alphanumeric)
+            $!octave = $octave = $0;
+            fail "Octave out of range: \"$0\" in \"$arg\"" if $0 > 10;
+          } elsif $o_spec ~~ m<^ _d (\d+) $> {    # relative with _dN
+            $octave -= $0;
+            $octave = 0 if $octave < 0;
+          } elsif $o_spec ~~ m<^ _u (\d+) $> {    # relative with _uN
+            $octave += $0;
+            $octave = 10 if $octave > 10;
+          } else {
+            die "Unexpected error 5176123";
+          }
 
-      # Enforce sanity...
-      while $note_value < 0   { $note_value += 12 } # bump up an octave
-      while $note_value > 127 { $note_value -= 12 } # drop down an octave
-        # 12 = number of MIDI notes in an octive
+          my $note_value = ($note + $octave * 12).Int;
 
-      @new-notes.push: $note_value;
+          # Enforce sanity...
+          while $note_value < 0   { $note_value += 12 } # bump up an octave
+          while $note_value > 127 { $note_value -= 12 } # drop down an octave
+            # 12 = number of MIDI notes in an octive
 
-    } else {
-      fail "Unknown note/rest option: \"$arg\"" if $arg.length;
+          @new-notes.push: $note_value;
+        }
+        default {
+          fail "Unknown note/rest option: \"$arg\"" if $arg.length;
+        }
     }
+  } # given
   }
   @new-notes;
 }
