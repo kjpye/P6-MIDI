@@ -35,26 +35,11 @@ CONSTRUCTOR AND METHODS
 
 MIDI::Track provides...
 
-over
-====
-
-
-
-cut
-===
-
-
-
 ###########################################################################
 
   * the constructor MIDI::Track->new({ ...options... })
 
 This returns a new track object. By default, the track is of type MTrk, which is probably what you want. The options, which are optional, is an anonymous hash. There are four recognized options: `data`, which sets the data of the new track to the string provided; `type`, which sets the type of the new track to the string provided; `events`, which sets the events of the new track to the contents of the list-reference provided (i.e., a reference to a LoL -- see [perllol](perllol) for the skinny on LoLs); and `events-r`, which is an exact synonym of `events`.
-
-cut
-===
-
-
 
   * the method $new-track = $track->copy
 
@@ -86,30 +71,15 @@ Incidentally, this potential need to copy also occurs with opuses (and in fact a
 
 (If you happen to need to copy a single event, it's just $new = [@$old] ; and if you happen to need to copy an event structure (LoL) outside of a track for some reason, use MIDI::Event::copy-structure.)
 
-cut
-===
-
-
-
   * track->skyline({ ...options... })
 
 skylines the entire track. Modifies the track. See MIDI::Score for documentation on skyline
-
-cut
-===
-
-
 
   * the method $track->events( @events )
 
 Returns the list of events in the track, possibly after having set it to @events, if specified and not empty. (If you happen to want to set the list of events to an empty list, for whatever reason, you have to use "$track->events-r([])".)
 
 In other words: $track->events(@events) is how to set the list of events (assuming @events is not empty), and @events = $track->events is how to read the list of events.
-
-cut
-===
-
-
 
   * the method $track->events-r( $event-r )
 
@@ -122,11 +92,6 @@ Originally $track->events was the only way to deal with events, but I added $tra
 
 But if you don't know how to deal with listrefs outside of LoLs, that's OK, just use $track->events.
 
-cut
-===
-
-
-
   * the method $track->type( 'MFoo' )
 
 Returns the type of $track, after having set it to 'MFoo', if provided. You probably won't ever need to use this method, other than in a context like:
@@ -137,19 +102,9 @@ Returns the type of $track, after having set it to 'MFoo', if provided. You prob
 
 Track types must be 4 bytes long; see [MIDI::Filespec](MIDI::Filespec) for details.
 
-cut
-===
-
-
-
   * the method $track->data( $kooky-binary-data )
 
 Returns the data from $track, after having set it to $kooky-binary-data, if provided -- even if it's zero-length! You probably won't ever need to use this method. For your information, $track->data(undef) is how to undefine the data for a track.
-
-cut
-===
-
-
 
   * the method $track->new-event('event', ...parameters... )
 
@@ -159,24 +114,9 @@ This adds the event ('event', ...parameters...) to the end of the event list for
 
 If you want anything other than the equivalent of that, like some kinda splice(), then do it yourself with $track->events-r or $track->events.
 
-cut
-===
-
-
-
   * the method $track.dump( ...options... )
 
 This dumps the track's contents for your inspection. The dump format is code that looks like Perl code that you'd use to recreate that track. This routine outputs with just `print`, so you can use `select` to change where that'll go. I intended this to be just an internal routine for use only by the method MIDI::Opus::dump, but I figure it might be useful to you, if you need to dump the code for just a given track. Read the source if you really need to know how this works.
-
-cut
-===
-
-
-
-back
-====
-
-
 
 COPYRIGHT 
 ==========
@@ -191,9 +131,4 @@ AUTHOR
 Sean M. Burke `sburke@cpan.org` (until 2010)
 
 Darrell Conklin `conklin@cpan.org` (from 2010)
-
-cut
-===
-
-
 

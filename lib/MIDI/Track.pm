@@ -63,10 +63,6 @@ you ever want to deal with anyway.
 
 MIDI::Track provides...
 
-=over
-
-=cut
-
 ###########################################################################
 
 =item the constructor MIDI::Track->new({ ...options... })
@@ -81,7 +77,6 @@ the list-reference provided (i.e., a reference to a LoL -- see
 L<perllol> for the skinny on LoLs); and C<events-r>, which is an exact
 synonym of C<events>.
 
-=cut
 =end pod
 
 =begin pod
@@ -129,7 +124,6 @@ $opus->copy, for copying entire opuses.
 and if you happen to need to copy an event structure (LoL) outside of a
 track for some reason, use MIDI::Event::copy-structure.)
 
-=cut
 =end pod
 
 method copy {
@@ -151,7 +145,6 @@ method copy {
 skylines the entire track.  Modifies the track.  See MIDI::Score for
 documentation on skyline
 
-=cut
 =end pod
 
 method skyline(*%options) {
@@ -177,7 +170,6 @@ In other words: $track->events(@events) is how to set the list of events
 (assuming @events is not empty), and @events = $track->events is how to
 read the list of events.
 
-=cut
 =end pod
 
 =begin pod
@@ -202,7 +194,6 @@ and forth.  This way, you can say:
 But if you don't know how to deal with listrefs outside of LoLs,
 that's OK, just use $track->events.
 
-=cut
 =end pod
 
 =begin pod
@@ -218,7 +209,6 @@ a context like:
 
 Track types must be 4 bytes long; see L<MIDI::Filespec> for details.
 
-=cut
 =end pod
 
 =begin pod
@@ -229,7 +219,6 @@ $kooky-binary-data, if provided -- even if it's zero-length!  You
 probably won't ever need to use this method.  For your information,
 $track->data(undef) is how to undefine the data for a track.
 
-=cut
 =end pod
 
 ###########################################################################
@@ -246,7 +235,6 @@ If you want anything other than the equivalent of that, like some
 kinda splice(), then do it yourself with $track->events-r or
 $track->events.
 
-=cut
 =end pod
 
 method new-event(*@args) {
@@ -270,7 +258,6 @@ might be useful to you, if you need to dump the code for just a given
 track.
 Read the source if you really need to know how this works.
 
-=cut
 =end pod
 
 method dump(*%options) { # dump a track's contents
@@ -413,7 +400,6 @@ our sub decode($type, $data, *%options) is export { # returns a new object, but 
 ###########################################################################
 
 =begin pod
-=back
 
 =head1 COPYRIGHT 
 
@@ -427,5 +413,4 @@ Sean M. Burke C<sburke@cpan.org> (until 2010)
 
 Darrell Conklin C<conklin@cpan.org> (from 2010)
 
-=cut
 =end pod

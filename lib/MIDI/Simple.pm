@@ -186,8 +186,6 @@ our enum Note is export (
 A MIDI::Simple object is a data structure with the following
 attributes:
 
-=over
-
 =item Score
 
 This is a list of all the notes (each a listref) that constitute this
@@ -240,8 +238,6 @@ a piece, use the C<set_tempo> routine, instead.
 This is a hash that can be used by user-defined object-methods for
 storing whatever they want.
 
-=back
-
 Each package that you call the procedure C<new_score> from, has a
 default MIDI::Simple object associated with it, and all the above
 attributes are accessible as:
@@ -285,8 +281,6 @@ like one, or the other, or both.
 =head2 MAIN ROUTINES
 
 These are the most important routines:
-
-=over
 
 =item new_score()  or  $obj = MIDI::Simple->new_score()
 
@@ -362,7 +356,6 @@ method noop(*@args) is export { # no operation
 #--------------------------------------------------------------------------
 
 =begin pod
-=back
 
 =head2 Parameters for n/r/noop
 
@@ -1012,8 +1005,6 @@ L<MIDI::Event> for an explanation of what the data types (like
 what I guess are the most important ones are toward the top:
 
 
-=over
-
 =item patch_change I<channel>, I<patch>;
 
 =item key_after_touch I<channel>, I<note>, I<velocity>;
@@ -1054,12 +1045,7 @@ what I guess are the most important ones are toward the top:
 
 =item sysex_f7 I<raw>;
 
-=back
-
-
 And here's the ones I'll be surprised if anyone ever uses:
-
-=over
 
 =item text_event_08 I<text>;
 
@@ -1090,8 +1076,6 @@ And here's the ones I'll be surprised if anyone ever uses:
 =item end_track I<starttime>;
 
 =item note I<duration>, I<channel>, I<note>, I<velocity>;
-
-=back
 
 =end pod
 
@@ -1208,14 +1192,11 @@ C<time_signature>'s last parameter, for "eight notated 32nd-notes per
 MIDI quarter note".  And this is relevant only if you're calling
 C<time_signature> anyway, which is not necessarily a given.)
 
-=cut
-
 ###########################################################################
 ###########################################################################
 
 =head2 MORE ROUTINES
 
-=over
 =end pod
 
 #sub _test_proc {
@@ -1495,8 +1476,6 @@ method dump_score {
 These are subroutines that aren't methods and don't affect anything
 (i.e., don't have "side effects") -- they just take input and/or give
 output.
-
-=over
 
 =item interval LISTREF, LIST
 
