@@ -64,11 +64,6 @@ This module provides three functions of interest, which all act upon event struc
 
 This takes a Buf containing binary MIDI data and decodes it into a new event structure (a LoL), a *reference* to which is returned. Options are:
 
-over
-====
-
-16
-
   * 'include' => LIST
 
 *If specified*, list is interpreted as a list of event names (e.g., 'cue-point' or 'note-off') such that only these events will be parsed from the binary data provided. Events whose names are NOT in this list will be ignored -- i.e., they won't end up in the event structure, and they won't be each passed to any callbacks you may have specified.
@@ -89,19 +84,9 @@ If defined, the code referred to (whether as `\&wanted` or as `sub { BLOCK }`) i
 
 Just like 'event-callback'; but if you specify this, the callback is called *instead* of adding the events to the event structure. (So the event structure returned by decode() at the end will always be empty.) Good for cases like the text dumper in the Synopsis, above.
 
-back
-====
-
-
-
   * MIDI::Event::encode( @events, {...options...})
 
 This takes an event structure (an array of Nidi::Event objects) and encodes it as binary data, which it returns in a Buf. Options:
-
-over
-====
-
-16
 
   * 'unknown-callback' => CODE
 

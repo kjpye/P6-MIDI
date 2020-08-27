@@ -208,8 +208,6 @@ This takes a Buf containing binary MIDI data and decodes it into a
 new event structure (a LoL), a I<reference> to which is returned.
 Options are:
 
-=over 16
-
 =item 'include' => LIST
 
 I<If specified>, list is interpreted as a list of
@@ -252,14 +250,10 @@ called I<instead> of adding the events to the event structure.  (So
 the event structure returned by decode() at the end will always be
 empty.)  Good for cases like the text dumper in the Synopsis, above.
 
-=back
-
 =item MIDI::Event::encode( @events, {...options...})
 
 This takes an event structure (an array of Nidi::Event objects) and encodes it
 as binary data, which it returns in a Buf.  Options:
-
-=over 16
 
 =item 'unknown-callback' => CODE
 
