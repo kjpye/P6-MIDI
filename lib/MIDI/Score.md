@@ -111,11 +111,6 @@ To avoid the long periphrase "items in a score structure", I will occasionally r
 
 These, below, are all the items that can appear in a score. This is basically just a repetition of the table in [MIDI::Event](MIDI::Event), with starttime substituting for dtime -- so refer to [MIDI::Event](MIDI::Event) for an explanation of what the data types (like "velocity" or "pitch_wheel"). As far as order, the first items are generally the most important:
 
-over
-====
-
-
-
   * ('note', *starttime*, *duration*, *channel*, *note*, *velocity*)
 
   * ('key_after_touch', *starttime*, *channel*, *note*, *velocity*)
@@ -186,20 +181,10 @@ over
 
   * ('raw_data', *starttime*, *raw*)
 
-back
-====
-
-
-
 FUNCTIONS
 =========
 
 This module provides these functions:
-
-over
-====
-
-
 
   * $score2_r = MIDI::Score::copy_structure($score_r)
 

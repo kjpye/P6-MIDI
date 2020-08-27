@@ -140,8 +140,6 @@ so refer to L<MIDI::Event> for an explanation of what the data types
 (like "velocity" or "pitch_wheel").
 As far as order, the first items are generally the most important:
 
-=over
-
 =item ('note', I<starttime>, I<duration>, I<channel>, I<note>, I<velocity>)
 
 =item ('key_after_touch', I<starttime>, I<channel>, I<note>, I<velocity>)
@@ -212,14 +210,9 @@ As far as order, the first items are generally the most important:
 
 =item ('raw_data', I<starttime>, I<raw>)
 
-=back
-
-
 =head1 FUNCTIONS
 
 This module provides these functions:
-
-=over
 
 =item $score2_r = MIDI::Score::copy_structure($score_r)
 
