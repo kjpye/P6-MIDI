@@ -35,11 +35,6 @@ GOODIES
 
 For your use in code (as in the code in the Synopsis), this module provides a few lists:
 
-over
-====
-
-
-
   * @MIDI-events
 
 a list of all "MIDI events" AKA voice events -- e.g., 'note-on'
@@ -60,20 +55,10 @@ the combination of Text-events and Nontext-meta-events.
 
 the combination of all the above lists.
 
-back
-====
-
-
-
 FUNCTIONS
 =========
 
 This module provides three functions of interest, which all act upon event structures. As an end user, you probably don't need to use any of these directly, but note that options you specify for MIDI::Opus.new with a from_file or from_handle options will percolate down to these functions; so you should understand the options for the first two of the below functions. (The casual user should merely skim this section.)
-
-over
-====
-
-
 
   * MIDI::Event::decode( $data, ...options... )
 
@@ -136,11 +121,6 @@ If 1, `encode()` never ever *adds* an end-track (EOT) event to the encoded data 
 
 If 1, disables MIDI's "running status" compression. Probably never necessary unless you need to feed your MIDI data to a strange old sequencer that doesn't understand running status.
 
-back
-====
-
-
-
 Note: If you're encoding just a single event at a time or less than a whole trackful in any case, then you probably want something like:
 
     $data = MIDI::Event::encode(
@@ -163,11 +143,6 @@ This takes an event structure, and returns a copy of it. If you're thinking abou
     $track2 = $track.copy
 
 instead. But it's here if you happen to need it.
-
-back
-====
-
-
 
 EVENTS AND THEIR DATA TYPES
 ===========================
@@ -202,11 +177,6 @@ Events use these data types:
   * song-number = a value 0 to 127
 
   * tempo = microseconds, a value 0 to 16,777,215 (0x00FFFFFF)
-
-back
-====
-
-
 
 For data types not defined above, (e.g., *sf* and *mi* for `'key-signature'`), consult [MIDI::Filespec](MIDI::Filespec) and/or the source for `MIDI::Event.pm`. And if you don't see it documented, it's probably because I don't understand it, so you'll have to consult a real MIDI reference.
 
