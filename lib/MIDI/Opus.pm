@@ -41,10 +41,6 @@ explanation of most of them, actually.
 
 MIDI::Opus provides...
 
-=over
-
-=cut
-
 ###########################################################################
 
 =item the constructor MIDI::Opus->new({ ...options... })
@@ -76,9 +72,6 @@ files, as in the code in the Synopsis, above), without having to deal
 with any of the events in them.  (Actually, this option is implemented
 in code in MIDI::Track, but in a routine there that I've left
 undocumented, as you should access it only thru here.)
-
-=cut
-'
 
 =end pod
 
@@ -130,7 +123,6 @@ This duplicates the contents of the given opus, and returns
 the duplicate.  If you are unclear on why you may need this function,
 read the documentation for the C<copy> method in L<MIDI::Track>.
 
-=cut
 =end pod
 
 method copy {
@@ -185,7 +177,6 @@ list of tracks back and forth.  This way, you can say:
 But if you don't know how to deal with listrefs like that, that's OK,
 just use $opus->tracks.
 
-=cut
 =end pod
 
 #NYI sub tracks-r {
@@ -211,7 +202,6 @@ This grid quantizes an opus.  It simply calls MIDI::Score::quantize on
 every track.  See docs for MIDI::Score::quantize.  Original opus is
 destroyed, use MIDI::Opus::copy if you want to take a copy first.
 
-=cut
 =end pod
 
 method quantize(*%options) {
@@ -245,7 +235,6 @@ option C<delimiter>; I<otherwise>, dump the data as Perl code that, if
 run, would/should reproduce the opus.  For concision's sake, the track data
 isn't dumped, unless you specify the option C<dump-tracks> as true.
 
-=cut
 =end pod
 
 method dump(*%options) {
@@ -294,7 +283,6 @@ percolates down to the calls to MIDI::Event::encode -- which see.
 Currently this just opens the file, calls $opus.write-to-handle
 on the resulting filehandle, and closes the file.
 
-=cut
 =end pod
 
 method write-to-file($destination, *%options) {
@@ -336,7 +324,6 @@ percolates down to the calls to MIDI::Event::encode -- which see.
 Note that this is probably not what you'd want for sending music
 to C</dev/sequencer>, since MIDI files are not MIDI-on-the-wire.
 
-=cut
 =end pod
 
 sub pack-n($val) {
@@ -526,8 +513,6 @@ percussion (whether on percussive patches or on channel 10) is not
 specially represented, as it probably should be;
 notes overlapping are not represented at all well.
 
-=cut
-'
 =end pod
 
 #NYI method draw(*%options) {
@@ -622,7 +607,6 @@ $MIDI::Opus::BG-color = '000000'; # Black goes with everything, you know.
 ###########################################################################
 
 =begin pod
-=back
 
 =head1 WHERE'S THE DESTRUCTOR?
 
@@ -700,5 +684,4 @@ Sean M. Burke C<sburke@cpan.org> (until 2010)
 
 Darrell Conklin C<conklin@cpan.org> (from 2010)
 
-=cut
 =end pod

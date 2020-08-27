@@ -27,16 +27,6 @@ CONSTRUCTOR AND METHODS
 
 MIDI::Opus provides...
 
-over
-====
-
-
-
-cut
-===
-
-
-
 ###########################################################################
 
   * the constructor MIDI::Opus->new({ ...options... })
@@ -47,19 +37,9 @@ If you specify either `from-file` or `from-handle`, you probably don't want to s
 
 Finally, the option `no-parse` can be used in conjuction with either `from-file` or `from-handle`, and, if true, will block MTrk tracks' data from being parsed into MIDI events, and will leave them as track data (i.e., what you get from $track->data). This is useful if you are just moving tracks around across files (or just counting them in files, as in the code in the Synopsis, above), without having to deal with any of the events in them. (Actually, this option is implemented in code in MIDI::Track, but in a routine there that I've left undocumented, as you should access it only thru here.)
 
-cut
-===
-
-'
-
   * the method $new-opus = $opus->copy
 
 This duplicates the contents of the given opus, and returns the duplicate. If you are unclear on why you may need this function, read the documentation for the `copy` method in [MIDI::Track](MIDI::Track).
-
-cut
-===
-
-
 
   * the method $opustracks-r( $tracks-r )
 
@@ -72,46 +52,21 @@ Originally $opus->tracks was the only way to deal with tracks, but I added $opus
 
 But if you don't know how to deal with listrefs like that, that's OK, just use $opus->tracks.
 
-cut
-===
-
-
-
   * the method $new-opus = $opus.quantize
 
 This grid quantizes an opus. It simply calls MIDI::Score::quantize on every track. See docs for MIDI::Score::quantize. Original opus is destroyed, use MIDI::Opus::copy if you want to take a copy first.
-
-cut
-===
-
-
 
   * the method $opus.dump( ...options... )
 
 Dumps the opus object as a bunch of text, for your perusal. Options include: `flat`, if true, will have each event in the opus as a tab-delimited line -- or as delimited with whatever you specify with option `delimiter`; *otherwise*, dump the data as Perl code that, if run, would/should reproduce the opus. For concision's sake, the track data isn't dumped, unless you specify the option `dump-tracks` as true.
 
-cut
-===
-
-
-
   * the method $opus.write-to-file('filespec', { ...options...} )
 
 Writes $opus as a MIDI file named by the given filespec. The options hash is optional, and whatever you specify as options percolates down to the calls to MIDI::Event::encode -- which see. Currently this just opens the file, calls $opus.write-to-handle on the resulting filehandle, and closes the file.
 
-cut
-===
-
-
-
   * the method $opus.write-to-handle(IOREF, ...options... )
 
 Writes $opus as a MIDI file to the IO handle you pass a reference to (example: `*STDOUT{IO}`). The options hash is optional, and whatever you specify as options percolates down to the calls to MIDI::Event::encode -- which see. Note that this is probably not what you'd want for sending music to `/dev/sequencer`, since MIDI files are not MIDI-on-the-wire.
-
-cut
-===
-
-
 
   * the method $opus.draw({ ...options...})
 
@@ -137,16 +92,6 @@ As to what to do with the object you get back, you probably want something like:
 Using this method will cause a `die` if it can't successfully `use GD`.
 
 I emphasise that `draw` is expermental, and, in any case, is only meant to be a crude hack. Notably, it does not address well some basic problems: neither volume nor patch-selection (nor any notable aspects of the patch selected) are represented; pitch-wheel changes are not represented; percussion (whether on percussive patches or on channel 10) is not specially represented, as it probably should be; notes overlapping are not represented at all well.
-
-cut
-===
-
-'
-
-back
-====
-
-
 
 WHERE'S THE DESTRUCTOR?
 =======================
@@ -200,9 +145,4 @@ AUTHORS
 Sean M. Burke `sburke@cpan.org` (until 2010)
 
 Darrell Conklin `conklin@cpan.org` (from 2010)
-
-cut
-===
-
-
 
