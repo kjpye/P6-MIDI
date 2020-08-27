@@ -115,8 +115,6 @@ An I<event structure> is a list of such events -- an array of objects.
 For your use in code (as in the code in the Synopsis), this module
 provides a few lists:
 
-=over
-
 =item @MIDI-events
 
 a list of all "MIDI events" AKA voice events -- e.g., 'note-on'
@@ -137,8 +135,6 @@ the combination of Text-events and Nontext-meta-events.
 =item @All-events
 
 the combination of all the above lists.
-
-=back
 
 =end pod
 
@@ -205,8 +201,6 @@ MIDI::Opus.new with a from_file or from_handle options will percolate
 down to these functions; so you should understand the options for the
 first two of the below functions.  (The casual user should merely skim
 this section.)
-
-=over
 
 =item MIDI::Event::decode( $data, ...options... )
 
@@ -299,8 +293,6 @@ If 1, disables MIDI's "running status" compression.  Probably never
 necessary unless you need to feed your MIDI data to a strange old
 sequencer that doesn't understand running status.
 
-=back
-
 Note: If you're encoding just a single event at a time or less than a
 whole trackful in any case, then you probably want something like:
 
@@ -331,7 +323,6 @@ straightforward
 
 instead.  But it's here if you happen to need it.
 
-=back
 
 =end pod
 ###########################################################################
@@ -442,8 +433,6 @@ Events use these data types:
 =item song-number = a value 0 to 127
 
 =item tempo = microseconds, a value 0 to 16,777,215 (0x00FFFFFF)
-
-=back
 
 For data types not defined above, (e.g., I<sf> and I<mi> for
 C<'key-signature'>), consult L<MIDI::Filespec> and/or the source for
