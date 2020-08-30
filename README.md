@@ -9,38 +9,46 @@ SYNOPSIS
     use MIDI;
 
     my @events = (
-      MIDI::Event.new(type       => 'text_event',
-                      delta-time => 0,
-                      args       => ('MORE COWBELL')),
-      MIDI::Event.new(type       => 'set_tempo',
-                      delta-time => 0,
-                      args       => (450_000,)), # 1qn = .45 seconds
+      MIDI::Event::Text-event.new(time => 0,
+                                  text => 'MORE COWBELL'),
+      MIDI::Event::Set-tempo.new(time  => 0,
+                                 tempo => 450_000), # 1qn = .45 seconds
     );
 
-    for (1 .. 20) {
+    for ^20 {
       @events.append:
-        MIDI::Event.new(type       => 'note_on',
-                        delta-time => 90,
-                        args       => (9, 56, 127)),
-        MIDI::Event.new(type       => 'note_off',
-                        delta-time => 6,
-                        args       => (9, 56, 127)),
+        MIDI::Event::Note-on.new(time => 90,
+                                 channel => 9,
+                                 note-number => 56,
+                                 velocity => 127
+                                ),
+        MIDI::Event::Note-off.new(time => 6,
+                                  channel => 9,
+                                  note-number => 56,
+                                  velocity => 127
+                                 ),
       ;
     }
-    foreach my $delay (reverse(1..96)) {
+    for (1..89).reverse -> $delay {
       @events.append:
-        MIDI::Event.new(type       => 'note_on',
-                        delta-time => 0,
-                        args       => (9, 56, 127)),
-        MIDI::Event.new(type       => 'note_off',
-                        delta-time => $delay,
-                        args       => (9, 56, 127)),
+        MIDI::Event::Note-on.new(time => 0,
+                                 channel => 9,
+                                 note-number => 56,
+                                 velocity => 127
+                                ),
+        MIDI::Event::Note-off.new(time => $delay;
+                                 channel => 9,
+                                 note-number => 56,
+                                 velocity => 127
+                                ),
       ;
     }
 
     my $cowbell-track = MIDI::Track.new({ 'events' => @events });
-    my $opus = MIDI::Opus.new(
-     { format => 0, ticks => 96, tracks => [ $cowbell-track ] } );
+    my $opus = MIDI::Opus.new(format => 0,
+                              ticks => 96,
+                              tracks => [ $cowbell-track ]
+                             );
     $opus.write-to-file( 'cowbell.mid' );
 
 DESCRIPTION
@@ -50,30 +58,20 @@ This suite of modules provides routines for reading, composing, modifying, and w
 
 From FOLDOC (`http://wombat.doc.ic.ac.uk/foldoc/`):
 
-over
-====
-
-
-
 **MIDI, Musical Instrument Digital Interface**
 
-ltmultimedia, file formatgt (MIDI /mi'-dee/, /mee'-dee/) A hardware specification and protocol used to communicate note and effect information between synthesisers, computers, music keyboards, controllers and other electronic music devices. [...]
+<multimedia, file format> (MIDI /mi'-dee/, /mee'-dee/) A hardware specification and protocol used to communicate note and effect information between synthesisers, computers, music keyboards, controllers and other electronic music devices. [...]
 
 The basic unit of information is a "note on/off" event which includes a note number (pitch) and key velocity (loudness). There are many other message types for events such as pitch bend, patch changes and synthesizer-specific events for loading new patches etc.
 
 There is a file format for expressing MIDI data which is like a dump of data sent over a MIDI port. [...]
-
-back
-====
-
-
 
 COMPONENTS
 ==========
 
 The MIDI-Perl suite consists of these modules:
 
-[MIDI](MIDI) (which you're looking at), [MIDI::Opus](MIDI::Opus), [MIDI::Track](MIDI::Track), [MIDI::Event](MIDI::Event), [MIDI::Score](MIDI::Score), and [MIDI::Simple](MIDI::Simple). All of these contain documentation in pod format. You should read all of these pods.
+[MIDI](MIDI) (which you're looking at), [MIDI::Opus](MIDI::Opus), [MIDI::Track](MIDI::Track), [MIDI::Event](MIDI::Event), [MIDI::Score](MIDI::Score), and [MIDI::Simple](MIDI::Simple). All of these contain documentation in pod6 format. You should read all of these pods.
 
 The order you want to read them in will depend on what you want to do with this suite of modules: if you are focused on manipulating the guts of existing MIDI files, read the pods in the order given above.
 
@@ -82,23 +80,18 @@ But if you aim to compose music with this suite, read this pod, then [MIDI::Scor
 INTRODUCTION
 ============
 
-This suite of modules is basically object-oriented, with the exception of MIDI::Simple. MIDI opuses ("songs") are represented as objects belonging to the class MIDI::Opus. An opus contains tracks, which are objects belonging to the class MIDI::Track. A track will generally contain a list of events, where each event is a list consisting of a command, a delta-time, and some number of parameters. In other words, opuses and tracks are objects, and the events in a track comprise a LoL (and if you don't know what an LoL is, you must read [perllol](perllol)).
+This suite of modules is basically object-oriented, with the exception of MIDI::Simple. MIDI opuses ("songs") are represented as objects belonging to the class MIDI::Opus. An opus contains tracks, which are objects belonging to the class MIDI::Track. A track will generally contain a list of events, where each event is an object containing a delta-time and other information depending on the type of event. In other words, opuses, tracks and events are objects.
 
-Furthermore, for some purposes it's useful to analyze the totality of a track's events as a "score" -- where a score consists of notes where each event is a list consisting of a command, a time offset from the start of the track, and some number of parameters. This is the level of abstraction that MIDI::Score and MIDI::Simple deal with.
+Furthermore, for some purposes it's useful to analyze the totality of a track's events as a "score" -- where a score consists of notes where each event is a list consisting of a command, a time offset from the start of the track, and some number of parameters. This is the level of abstraction that MIDI::Score and MIDI::Simple deal with. (In this case, the attribute of an event which normally refers to a delta-time (from the previous event) now contains a time-offset from the beginning of the track.)
 
-While this suite does provide some functionality accessible only if you're comfortable with various kinds of references, and while there are some options that deal with the guts of MIDI encoding, you can (I hope) get along just fine with just a basic grasp of the MIDI "standard", and a command of LoLs. I have tried, at various points in this documentation, to point out what things are not likely to be of use to the casual user.
+While there are some options that deal with the guts of MIDI encoding, you can (I hope) get along just fine with just a basic grasp of the MIDI "standard". I have tried, at various points in this documentation, to point out what things are not likely to be of use to the casual user.
 
 GOODIES
 =======
 
 The bare module MIDI.pm doesn't *do* much more than `use` the necessary component submodules (i.e., all except MIDI::Simple). But it does provide some hashes you might find useful:
 
-over
-====
-
-
-
-########################################################################### # Note numbers => a representation of them
+**Note numbers <--> a representation of them**
 
   * `%MIDI::note2number` and `%MIDI::number2note`
 
@@ -111,11 +104,6 @@ over
   * `%MIDI::notenum2percussion` and `%MIDI::percussion2notenum`
 
 `%MIDI::notenum2percussion` correponds General MIDI Percussion Keys to English names (e.g., 56 to 'Cowbell') -- but note that only numbers 35 to 81 (inclusive) are defined; `%MIDI::percussion2notenum` is the reverse. Have a look at the source to see the contents of the hash.
-
-back
-====
-
-
 
 BRIEF GLOSSARY
 ==============
@@ -173,12 +161,16 @@ COPYRIGHT
 
 Copyright (c) 1998-2005 Sean M. Burke. All rights reserved.
 
-This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+Copyright (c) 2020 Kevin J. Pye. All rights reserved.
+
+This library is free software; you can redistribute it and/or modify it under the same terms as Perl or Raku itself.
 
 AUTHORS
 =======
 
-Sean M. Burke `sburke@cpan.org` (until 2010)
+Sean M. Burke `sburke@cpan.org` (Perl version until 2010)
 
-Darrell Conklin `conklin@cpan.org` (from 2010)
+Darrell Conklin `conklin@cpan.org` (Perl version from 2010)
+
+Kevin Pye `kjpye@cpan.org` (Raku version)
 
