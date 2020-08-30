@@ -1,7 +1,7 @@
 use v6;
 
-my $Debug = 1;
-my $VERSION = '0.84';
+my $Debug = 0;
+my $VERSION = '0.9';
 
 sub ber($value is copy){
     my @bytes = $value +& 0x7f;
@@ -78,8 +78,6 @@ class MIDI::Event {
 
 #  has $.time is rw = 0; # usually delta time, sometimes absolute time
 
-    ### TODO: fix doco
-    
 =begin pod
 =head1 NAME
 
@@ -101,11 +99,11 @@ MIDI::Event - MIDI events
 
 Functions and lists to do with MIDI events and MIDI event structures.
 
-An event is object, with each event type ab object in a different class, like:
+An event is object, with each event type an object in a different class, like:
 
               MIDI::Event::Note-on(time => 141,
                                    channel => 4,
-                                   note=number => 50,
+                                   note-number => 50,
                                    velocity => 64)
 
 An I<event structure> is a list of such events -- an array of objects.
@@ -205,7 +203,8 @@ this section.)
 =item MIDI::Event::decode( $data, ...options... )
 
 This takes a Buf containing binary MIDI data and decodes it into a
-new event structure (a LoL), a I<reference> to which is returned.
+new event structure, which is returned.
+
 Options are:
 
 =item 'include' => LIST
@@ -252,7 +251,7 @@ empty.)  Good for cases like the text dumper in the Synopsis, above.
 
 =item MIDI::Event::encode( @events, {...options...})
 
-This takes an event structure (an array of Nidi::Event objects) and encodes it
+This takes an event structure (an array of Midi::Event objects) and encodes it
 as binary data, which it returns in a Buf.  Options:
 
 =item 'unknown-callback' => CODE
@@ -300,17 +299,17 @@ whole trackful in any case, then you probably want something like:
             'never-add-eot' => 1 );
 
 which just encodes that one event I<as> an event structure of one
-event -- i.e., an array thatconsistes of only one element.
+event -- i.e., an array that consists of only one element.
 
 But note that running status will not always apply when you're
 encoding less than a whole trackful at a time, since running status
-works only within a LoL encoded all at once.  This'll result in
+works only within an array encoded all at once.  This will result in
 non-optimally compressed, but still effective, encoding.
 
 =item MIDI::Event::copy-structure()
 
 This takes an event structure, and returns a copy of it.  If you're
-thinking about using this, you probably should want to use the more
+thinking about using this, you probably want to use the more
 straightforward
 
           $track2 = $track.copy
@@ -319,18 +318,18 @@ instead.  But it's here if you happen to need it.
 
 
 =end pod
-###########################################################################
-method dump {
+
+method raku {
   print( "        [", self.dump-quote, "\n" );
 }
 
-method copy-structure {
-  # Takes an event structure (a ref to a LoL),
-  # and returns a copy of that structure.
-
-  fail
-# TODO  return [  map( [@$_], @$events_r )  ];
-}
+# This isn't a method on an object of type Mime::Event. Possibly at the track level
+#method copy-structure {
+#  # Takes an event structure
+#  # and returns a copy of that structure.
+#
+# return [  map( [@$_], @$events_r )  ];
+#}
 
 sub read-u14-bit($in) {
   # Decodes to a value 0 to 16383, as is used for some event encoding

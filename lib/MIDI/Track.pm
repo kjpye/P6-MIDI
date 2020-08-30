@@ -215,10 +215,10 @@ method new-event(*@args) {
 ###########################################################################
 
 =begin pod
-=item the method $track.dump( ...options... )
+=item the method $track.raku( ...options... )
 
 This dumps the track's contents for your inspection.  The dump format
-is code that looks like Perl code that you'd use to recreate that track.
+is code that looks like Raku code that you'd use to recreate that track.
 This routine outputs with just C<print>, so you can use C<select> to
 change where that'll go.  I intended this to be just an internal
 routine for use only by the method MIDI::Opus::dump, but I figure it
@@ -228,7 +228,7 @@ Read the source if you really need to know how this works.
 
 =end pod
 
-method dump(*%options) { # dump a track's contents
+method raku(*%options) { # dump a track's contents
 
   my $indent = '    ';
   print(
@@ -241,7 +241,7 @@ method dump(*%options) { # dump a track's contents
 	$indent, "  events => [  # ", +@!events, " events.\n",
        );
   for @!events -> $event {
-    print $indent, $event.dump;
+    print $indent, $event.raku;
     # was: print( $indent, "    [", &MIDI::-dump-quote(@$event), "],\n" );
   }
   print( "$indent  ]\n$indent}),\n$indent\n" );
@@ -374,9 +374,10 @@ our sub decode($type, $data, *%options) is export { # returns a new object, but 
 =head1 COPYRIGHT 
 
 Copyright (c) 1998-2002 Sean M. Burke. All rights reserved.
+
 Copyright (C) 2020 Kevin J. Pye.
 
-modify it under the same terms as Perl itself.
+modify it under the same terms as Raku itself.
 
 =head1 AUTHOR
 

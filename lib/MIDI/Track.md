@@ -106,7 +106,9 @@ This dumps the track's contents for your inspection. The dump format is code tha
 COPYRIGHT 
 ==========
 
-Copyright (c) 1998-2002 Sean M. Burke. All rights reserved. Copyright (C) 2020 Kevin J. Pye.
+Copyright (c) 1998-2002 Sean M. Burke. All rights reserved.
+
+Copyright (C) 2020 Kevin J. Pye.
 
 modify it under the same terms as Perl itself.
 
