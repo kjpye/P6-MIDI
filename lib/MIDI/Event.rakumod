@@ -320,7 +320,7 @@ instead.  But it's here if you happen to need it.
 =end pod
 
 method raku {
-  print( "        [", self.dump-quote, "\n" );
+#  print( "        [", self.dump-quote, "\n" );
 }
 
 # This isn't a method on an object of type Mime::Event. Possibly at the track level
@@ -532,7 +532,7 @@ And these are the events:
               }
 
 =begin pod
-=item MIDILLEvent::Ley_after_touch(I<dtime>, I<channel>, I<note>, I<velocity>)
+=item MIDILLEvent::Key_after_touch(I<dtime>, I<channel>, I<note>, I<velocity>)
 
 =end pod
               when 0xA0 {
@@ -1044,12 +1044,13 @@ method encode($use-running-status, $last-status is rw --> Buf) {
 }
 
 method encode-text-event($delta-time, $cmd, $text --> Buf) {
+    my $buftext = $text !~~ Buf ?? $text.encode() !! $text;
     Buf.new(
         |ber($delta-time),
 	0xff,
 	$cmd,
-	|ber($text.elems)
-    ) ~ $text;
+	|ber($buftext.elems)
+    ) ~ $buftext;
 }
 
 }				# class Event
@@ -1159,12 +1160,10 @@ class MIDI::Event::Patch-change is MIDI::Event {
     $last-status = $status;
     $use-old-status
       ?? # we can use running status
-        Buf.new(|ber($!time),          $!channel      +& 0x7f,
-                                       $!patch-number +& 0x7f)
+        Buf.new(|ber($!time),          $!patch-number +& 0x7f)
       !! # otherwise
-        Buf.new(|ber($!time), $status, $!channel      +& 0x7f,
-                                       $!patch-number +& 0x7f)
-    ;
+        Buf.new(|ber($!time), $status, $!patch-number +& 0x7f)
+    ~ Buf.new(0x56);
   }
 }
 

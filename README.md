@@ -1,3 +1,5 @@
+[![Actions Status](https://github.com/kjpye/P6-MIDI/workflows/test/badge.svg)](https://github.com/kjpye/P6-MIDI/actions)
+
 NAME
 ====
 

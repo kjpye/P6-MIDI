@@ -1,0 +1,62 @@
+#!/usr/bin/env raku
+
+grammar Lyrics {
+    token TOP {
+        <word>*
+    }
+    token word {
+        | <quotedstring>
+        | (\S+)
+        | (\s+)
+    }
+    token quotedstring {
+        '"' <qspart>+ '"'
+    }
+    token qspart {
+        | <-[ " \\ ]>+
+        | '\\' .
+    }
+}
+
+for lines() -> $line {
+    my $first = '\\n';
+    if $line ~~ /\s+\\/ {
+      say $line;
+      next;
+    }
+    my $/ = Lyrics.parse($line);
+    for $/<word> -> $word is copy {
+        given $word {
+            when .ends-with('-') {
+                if $first {
+                  s/\-$//;
+                  print "\"\\n{$_}\"";
+                  $first = '';
+                } else {
+                  s/\-$//;
+                  .print;
+                }
+            }
+            when .starts-with('"') {
+                s/^\"/"$first/ if $first;
+                s/\-\"$/"/ or s/\"$/ "/;
+                print $_;
+                $first = '';
+            }
+            when '__' {
+            }
+            when '_' {
+                print '""';
+            }
+            when /^\s+$/ {
+                print $_;
+            }
+            default {
+                print "\"{$first}$_ \"";
+                $first = '';
+            }
+        }
+    }
+    say '';
+}
+

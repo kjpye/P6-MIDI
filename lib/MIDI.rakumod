@@ -402,7 +402,8 @@ Kevin Pye C<kjpye@cpan.org> (Raku version)
 =end pod
 
 ###########################################################################
-sub dump-quote(*@stuff) {
+
+our sub dump-quote(*@stuff) {
   # Used variously by some MIDI::* modules.  Might as well keep it here.
 
   return
@@ -440,4 +441,5 @@ sub dump-quote(*@stuff) {
 	 }
 	);
 }
+
 ###########################################################################

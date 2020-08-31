@@ -326,7 +326,7 @@ our sub events-to-score($events, *%options) {
   # Returns the score AND the total tick time
 
   my $time = 0;
-  if %options<no_note_abstraction> {
+  if %options<no-note-abstraction> {
     my @score;
     my $new-time;
     for $events -> $event {
@@ -345,8 +345,8 @@ our sub events-to-score($events, *%options) {
 	  temp $_; # copy.
 	  $time += .time;
 	  if $_ ~~ (MIDI::Event::Note-off)
-	     or ($_ ~~ (MIDI::Event::Note-on) && .velocity == 0) { # End of a note
-              my $index = make-index(.channel, .note);
+	     or ($_ ~~ (MIDI::Event::Note-on) && $_.velocity == 0) { # End of a note
+              my $index = make-index($_.channel, $_.note);
 	       if %note{$index} && %note{$index}[0] {
                   %note{$index}[0].duration += $time;
                   %note{$index}.shift;
@@ -354,7 +354,7 @@ our sub events-to-score($events, *%options) {
 	    next; # Erase this event.
 	  } elsif $_ ~~ (MIDI::Event::Note-on) {
 	    # Start of a note
-              my $index = make-index(.channel, .note);
+              my $index = make-index($_.channel, $_.note);
 	      my $newnote = MIDI::Event::Note.new(time        => $time,
 						  duration    => -$time,
 						  channel     => .channel,

@@ -1,0 +1,8 @@
+#!/usr/bin/env raku\
+
+use MIDI;
+
+sub MAIN($input-file, $lyrics-file, $output-file, :$channel = 1, :$skip = 0) {
+    my $opus = MID::Opus.new(from-file => $input-file);
+    dd $opus;
+}

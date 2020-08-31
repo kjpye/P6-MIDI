@@ -264,8 +264,6 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
  
   my @events = @!events.clone;
 
-#  my $data = ''; # what I'll join @data all together into
-
   my $unknown-callback = Nil;
   $unknown-callback = %options<unknown-callback>;
 
@@ -294,20 +292,18 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
     }
   }
 
-#print "--\n";
-#foreach(@events){ MIDI::Event::dump($_) }
-#print "--\n";
-
   my $maybe-running-status = not %options<no-running-status>;
   $last-status = -1;
 
-  # This is what I wanted the next pice of code to be. Unfortunately it gives errors about using Str on a Buf
-  #[~] @events.map: { .encode($maybe-running-status, $last-status) };
-  my $ret = Buf.new();
+  # [~] @events.map: { .encode($maybe-running-status, $last-status) };
+  my $encoded-buf = Buf.new();
   for @events -> $event {
-    $ret = $ret ~ $event.encode($maybe-running-status, $last-status);
+      my $encoded-event = $event.encode($maybe-running-status, $last-status);
+      dd $encoded-event;
+      $encoded-buf ~= $encoded-event;
+      dd $encoded-buf;
   }
-  $ret;
+  $encoded-buf;
 }
 
 ###########################################################################

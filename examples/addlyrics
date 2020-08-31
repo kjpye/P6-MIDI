@@ -1,0 +1,84 @@
+#!/usr/bin/env raku
+
+use MIDI;
+
+grammar Lyrics {
+    token TOP {
+        <.ws>? <word>* %% <.ws>
+    }
+    token word {
+        | <quotedstring>
+        | (\S+)
+    }
+    token quotedstring {
+        '"' <qspart>* '"'
+    }
+    token qspart {
+        | <-[ " \\ ]>+
+        | '\\' .
+    }
+}
+
+sub read-lyrics($file) {
+    my @words;
+    for $file.IO.lines() -> $line {
+        say $line;
+        my $/ = Lyrics.parse($line);
+        my $first = "\n";
+        for $/<word> -> $word is copy {
+            given $word {
+                when .ends-with('-') {
+                    if $first {
+                        s/\-$//;
+                        @words.push: "\"\\n{$_}\"";
+                        $first = '';
+                    } else {
+                        s/\-$//;
+                        @words.push: $_;
+                    }
+                }
+                when .starts-with('"') {
+                    s/^\"/$first/;
+                    s/\-\"$// or s/\"$/ /;
+                    $first = '';
+                    @words.push: $_;
+                }            
+                when '_' {
+                    @words.push: '';
+                }
+                default {
+                    @words.push: "{$first}{$_} ";
+                    $first = '';
+                }
+            }
+        }
+    }
+    @words;
+}
+
+sub MAIN($input-file,
+         $lyrics-file,
+         $output-file,
+         :$track      = 0;
+         :$channel    = 1,
+         :$skip       = 0
+        ) {
+    my $opus = MIDI::Opus.new(from-file => $input-file);
+    dd $opus;
+    my @words = read-lyrics($lyrics-file);
+    dd @words;
+    my @new-events;
+    for $opus.tracks[$track].events -> $event {
+        @new-events.push: $event;
+        my $text = 'a';
+        if $event ~~ MIDI::Event::Note-on 
+        and $event.velocity
+        and $event.channel == $channel
+        and +@words {
+                @new-events.push: MIDI::Event::Lyric.new(text => @words.shift, time => 0);
+        }
+    }
+    $opus.tracks[$track].events = @new-events;
+#    dd $opus.raku;
+    $opus.write-to-file: $output-file;
+}
