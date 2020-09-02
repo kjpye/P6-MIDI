@@ -63,18 +63,20 @@ sub MAIN($input-file,
          :$channel    = 1,
          :$skip       = 0
         ) {
+    my $skipcount = +$skip;
     my $opus = MIDI::Opus.new(from-file => $input-file);
-    dd $opus;
+#    dd $opus;
     my @words = read-lyrics($lyrics-file);
-    dd @words;
+#    dd @words;
     my @new-events;
     for $opus.tracks[$track].events -> $event {
         @new-events.push: $event;
         my $text = 'a';
         if $event ~~ MIDI::Event::Note-on 
-        and $event.velocity
-        and $event.channel == $channel
-        and +@words {
+           and $event.velocity
+           and $event.channel == $channel
+           and $skipcount-- ≤ 0
+           and +@words {
                 @new-events.push: MIDI::Event::Lyric.new(text => @words.shift, time => 0);
         }
     }

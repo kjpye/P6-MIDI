@@ -3,6 +3,8 @@ use v6;
 my $Debug = 0;
 my $VERSION = '0.9';
 
+use MIDI::Utility;
+
 sub ber($value is copy){
     my @bytes = $value +& 0x7f;
     $value +>= 7;
@@ -320,7 +322,7 @@ instead.  But it's here if you happen to need it.
 =end pod
 
 method raku {
-#  print( "        [", self.dump-quote, "\n" );
+  print( "        [", dump-quote(self), "\n" );
 }
 
 # This isn't a method on an object of type Mime::Event. Possibly at the track level
@@ -1074,6 +1076,10 @@ class MIDI::Event::Note-off is MIDI::Event {
                                        $!velocity +& 0x7f)
     ;
   }
+
+  method raku() {
+      "MIDI::Event::Note-off.new(:time($!time), :channel($!channel), :note-number($!note-number), :velocity($!velocity))";
+  }
 }
 
 class MIDI::Event::Note is MIDI::Event {
@@ -1084,6 +1090,9 @@ class MIDI::Event::Note is MIDI::Event {
     has $.velocity;
 
     # no need for an encode method -- it's not a valid midi message
+    method raku() {
+        "MIDI::Event::Note.new(???)";
+    }
 }
 
 class MIDI::Event::Note-on is MIDI::Event {
@@ -1104,6 +1113,10 @@ class MIDI::Event::Note-on is MIDI::Event {
         Buf.new(|ber($!time), $status, $!note-number +& 0x7f,
                                        $!velocity +& 0x7f)
     ;
+  }
+  
+  method raku() {
+      "MIDI::Event::Note-on.new(:time($!time), :channel($!channel), :note-number($!note-number), :velocity($!velocity))";
   }
 }
 
@@ -1126,6 +1139,10 @@ class MIDI::Event::Key-after-touch is MIDI::Event {
                                        $!aftertouch +& 0x7f)
     ;
   }
+
+  method raku() {
+      "MIDI::Event::Key-after-touch.new(:time($!time), :channel($!channel), :note-number($!note-number), :aftertouch($!aftertouch))";
+  }
 }
 
 class MIDI::Event::Controller-change is MIDI::Event {
@@ -1147,6 +1164,10 @@ class MIDI::Event::Controller-change is MIDI::Event {
                                        $!value      +& 0x7f)
     ;
   }
+
+  method raku() {
+      "MIDI::Event::Controller-change.new(:time($!time), :channel($!channel), :controller($!controller), :value($!value))";
+  }
 }
 
 class MIDI::Event::Patch-change is MIDI::Event {
@@ -1163,7 +1184,11 @@ class MIDI::Event::Patch-change is MIDI::Event {
         Buf.new(|ber($!time),          $!patch-number +& 0x7f)
       !! # otherwise
         Buf.new(|ber($!time), $status, $!patch-number +& 0x7f)
-    ~ Buf.new(0x56);
+    ;
+  }
+
+  method raku() {
+      "MIDI::Event::Patch-change.new(:time($!time), :channel($!channel), :patch-number($!patch-number))";
   }
 }
 
@@ -1184,6 +1209,10 @@ class MIDI::Event::Channel-after-touch is MIDI::Event {
         Buf.new(|ber($!time), $status, $!channel    +& 0x7f,
                                        $!aftertouch +& 0x7f)
   }
+
+  method raku() {
+      "MIDI::Event::Channel-after-touch(:time($!time), :channel($!channel), :aftertouch($!aftertouch))";
+  }
 }
 
 class MIDI::Event::Pitch-wheel-change is MIDI::Event {
@@ -1203,11 +1232,19 @@ class MIDI::Event::Pitch-wheel-change is MIDI::Event {
       Buf.new(|ber($!time), $status,  ($!value + 0x2000)       +& 0x7f,
 	                             (($!value + 0x2000) +> 7) +& 0x7f)
   }
+
+  method raku() {
+      "MIDI::Event::Pitch-wheel-change.new(:time($!time), :channel($!channel), :value($!value))";
+  }
 }
 
 class MIDI::Event::Set-sequencer-number is MIDI::Event {
   has $.time is rw;
   has $.sequence-number;
+
+  method raku() {
+      "MIDI::Event::Set-sequence-number.new(:time($!time), :sequence-number($!sequence-number))";
+  }   
 }
 
 class MIDI::Event::Text-event is MIDI::Event {
@@ -1216,6 +1253,10 @@ class MIDI::Event::Text-event is MIDI::Event {
 
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x01, $!text;
+  }
+
+  method raku() {
+      "MIDI::Event::Text-event.new(:time($!time), #text#)";
   }
 }
 
@@ -1226,6 +1267,10 @@ class MIDI::Event::Copyright is MIDI::Event {
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x02, $!text;
   }
+
+  method raku() {
+      "MIDI::Event::Copyright.new(:time($!time), :text($!text))";
+  }
 }
 
 class MIDI::Event::Track-name is MIDI::Event {
@@ -1234,6 +1279,10 @@ class MIDI::Event::Track-name is MIDI::Event {
 
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x03, $!text;
+  }
+
+  method raku() {
+      "MIDI::Event::Track-name.new(:time($!time), :text($!text))";
   }
 }
 
@@ -1244,6 +1293,10 @@ class MIDI::Event::Instrument-name is MIDI::Event {
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x04, $!text;
   }
+
+  method raku() {
+      "MIDI::Event::Instrument-name.new(:time($!time), :text($!text))";
+  }
 }
 
 class MIDI::Event::Lyric is MIDI::Event {
@@ -1252,6 +1305,10 @@ class MIDI::Event::Lyric is MIDI::Event {
 
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x05, $!text;
+  }
+
+  method raku() {
+      "MIDI::Event::Lyric.new(:time($!time), :text({dump-quote($!text)})";
   }
 }
 
@@ -1262,6 +1319,10 @@ class MIDI::Event::Marker is MIDI::Event {
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x06, $!text;
   }
+
+  method raku() {
+      "MIDI::Event::Marker.new(:time($!time), :text($!text))";
+  }
 }
 
 class MIDI::Event::Cue-point is MIDI::Event {
@@ -1270,6 +1331,10 @@ class MIDI::Event::Cue-point is MIDI::Event {
 
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x07, $!text;
+  }
+
+  method raku() {
+      "MIDI::Event::Cue-point.new(:time($!time), :text($!text))";
   }
 }
 
@@ -1280,6 +1345,10 @@ class MIDI::Event::Text-event_08 is MIDI::Event {
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x08, $!text;
   }
+
+  method raku() {
+      "MIDI::Event::Text-event_08.new(:time($!time), :text($!text))";
+  }
 }
 
 class MIDI::Event::Text-event_09 is MIDI::Event {
@@ -1288,6 +1357,10 @@ class MIDI::Event::Text-event_09 is MIDI::Event {
 
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x09, $!text;
+  }
+
+  method raku() {
+      "MIDI::Event::Text-event_09.new(:time($!time), :text($!text))";
   }
 }
 
@@ -1298,6 +1371,10 @@ class MIDI::Event::Text-event_0a is MIDI::Event {
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x0a, $!text;
   }
+
+  method raku() {
+      "MIDI::Event::Text-event_0a.new(:time($!time), :text($!text))";
+  }
 }
 
 class MIDI::Event::Text-event_0b is MIDI::Event {
@@ -1306,6 +1383,10 @@ class MIDI::Event::Text-event_0b is MIDI::Event {
 
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x0b, $!text;
+  }
+
+  method raku() {
+      "MIDI::Event::Text-event_0b.new(:time($!time), :text($!text))";
   }
 }
 
@@ -1316,6 +1397,10 @@ class MIDI::Event::Text-event_0c is MIDI::Event {
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x0c, $!text;
   }
+
+  method raku() {
+      "MIDI::Event::Text-event_0c.new(:time($!time), :text($!text))";
+  }
 }
 
 class MIDI::Event::Text-event_0d is MIDI::Event {
@@ -1324,6 +1409,10 @@ class MIDI::Event::Text-event_0d is MIDI::Event {
 
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x0d, $!text;
+  }
+
+  method raku() {
+      "MIDI::Event::Text-event_0d.new(:time($!time), :text($!text))";
   }
 }
 
@@ -1334,6 +1423,10 @@ class MIDI::Event::Text-event_0e is MIDI::Event {
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x0e, $!text;
   }
+
+  method raku() {
+      "MIDI::Event::Text-event_0e.new(:time($!time), :text($!text))";
+  }
 }
 
 class MIDI::Event::Text-event_0f is MIDI::Event {
@@ -1343,13 +1436,21 @@ class MIDI::Event::Text-event_0f is MIDI::Event {
   method encode($use-running-status, $last-status is rw --> Buf) {
     self.encode-text-event: $!time, 0x0f, $!text;
   }
+
+  method raku() {
+      "MIDI::Event::Text-event_0f.new(:time($!time), :text($!text))";
+  }
 }
 
 class MIDI::Event::End-track is MIDI::Event {
   has $.time is rw;
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-    Buf.new(0xff, 0x2f, 0x00);
+    Buf.new(0x00, 0xff, 0x2f, 0x00);
+  }
+
+  method raku() {
+      "MIDI::Event::End-track.new(:time($!time))";
   }
 }
 
@@ -1367,6 +1468,10 @@ class MIDI::Event::Set-tempo is MIDI::Event {
 	      ($!tempo      ) +& 0xff;
 	     );
   }
+
+  method raku() {
+      "MIDI::Event::Set-tempo.new(:time($!time), :tempo($!tempo))";
+  }
 }
 
 class MIDI::Event::Smpte-offset is MIDI::Event {
@@ -1375,7 +1480,7 @@ class MIDI::Event::Smpte-offset is MIDI::Event {
   has $.minutes;
   has $.seconds;
   has $.fr;
-  has $.ff;
+  has $.ff; 
 
   method encode($use-running-status, $last-status is rw --> Buf) {
       Buf.new(
@@ -1388,6 +1493,10 @@ class MIDI::Event::Smpte-offset is MIDI::Event {
 	  $!fr,
 	  $!ff
       );
+  }
+
+  method raku() {
+      "MIDI::Event::Smpte-offset.new(:time($!time), :hours($!hours), :minutes($!minutes), :seconds($!seconds), :fr($!fr), :ff($!ff))";
   }
 }
 
@@ -1409,6 +1518,10 @@ class MIDI::Event::Time-signature is MIDI::Event {
 	  $!quarter-notes
       );
   }
+
+  method raku() {
+      "MIDI::Event::Time-signature.new(:time($!time), :numerator($!numerator), Ldenominator($!denominator), :ticks($!ticks), :quarter-notes($!quarter-notes))";
+  } 
 }
 
 class MIDI::Event::Key-signature is MIDI::Event {
@@ -1425,6 +1538,10 @@ class MIDI::Event::Key-signature is MIDI::Event {
 	  $!major-minor
       );
   }
+
+  method raku() {
+      "MIDI::Event::Key-signature.new(:time($!time), :sharps($!sharps), :major-minor($!major-minor))";
+  }
 }
 
 class MIDI::Event::Sequencer-specific is MIDI::Event {
@@ -1439,6 +1556,10 @@ class MIDI::Event::Sequencer-specific is MIDI::Event {
 	  $!data
       ); # FIX
   }
+
+  method raku() {
+      "MIDI::Event::Sequencer-specific.mew(:time($!time), :data(Buf.new($!data)))";
+  }
 }
 
 class MIDI::Event::sysex-f0 is MIDI::Event {
@@ -1451,6 +1572,10 @@ class MIDI::Event::sysex-f0 is MIDI::Event {
 	  |ber($!data.bytes),
 	  $!data
       );
+  }
+
+  method raku() {
+      "MIDI::Event::sysex-f0.new(:time($!time), :data(Buf.new($!data)))";
   }
 }
  
@@ -1465,6 +1590,10 @@ class MIDI::Event::sysex-f7 is MIDI::Event {
 	  $!data
       );
   }
+
+  method raku() {
+      "MIDI::Event::sysex-f7.new(:time($!time), :data(Buf.new($!data)))";
+  }
 }
 
 class MIDI::Event::Song-position is MIDI::Event {
@@ -1473,6 +1602,10 @@ class MIDI::Event::Song-position is MIDI::Event {
 
   method encode($use-running-status, $last-status is rw --> Buf) {
     Buf.new(0xf2) ~ self.write-u14-bit($!beats);
+  }
+
+  method raku() {
+      "MIDI::Event::Song-position.new(:time($!time), :beats($!beats))";
   }
 }
 
@@ -1486,6 +1619,10 @@ class MIDI::Event::Song-select is MIDI::Event {
 	  $!song-number
       );
   }
+
+  method raku() {
+      "MIDI::Event::Song-select.new(:time($!time), :song-number($!song-number))";
+  }
 }
 
 class MIDI::Event::Tune-request is MIDI::Event {
@@ -1493,6 +1630,10 @@ class MIDI::Event::Tune-request is MIDI::Event {
 
   method encode($use-running-status, $last-status is rw --> Buf) {
     Buf.new(0xf6);
+  }
+
+  method raku() {
+      "MIDI::Event::Tune-request.new(:time($!time))";
   }
 }
 
@@ -1508,5 +1649,9 @@ class MIDI::Event::Raw is MIDI::Event {
 	  |ber($!data.length),
 	  $!data
       );
+  }
+
+  method raku() {
+      "MIDI::Event::Raw.new(:time($!time), :command($!command), :data(Buf.new($!data)))";
   }
 }

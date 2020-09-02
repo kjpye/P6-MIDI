@@ -679,37 +679,36 @@ method parse-options(*@args) { # common parser for n/r/noop options
         say "note<$0> => <$note> ; octave_spec<$1> Octave<$octave>"
           if $Debug;
 
-          if ! ($o_spec.defined && $o_spec) {
-           # it's a bare note like "C" or "Bflat"
-          # noop
-      
-          } elsif $o_spec ~~ m<^ (\d+) $> {      # absolute! (alphanumeric)
+        if ! ($o_spec.defined && $o_spec) {
+            # it's a bare note like "C" or "Bflat"
+            # noop
+            
+        } elsif $o_spec ~~ m<^ (\d+) $> {      # absolute! (alphanumeric)
             $!octave = $octave = $0;
             fail "Octave out of range: \"$0\" in \"$arg\"" if $0 > 10;
-          } elsif $o_spec ~~ m<^ _d (\d+) $> {    # relative with _dN
+        } elsif $o_spec ~~ m<^ _d (\d+) $> {    # relative with _dN
             $octave -= $0;
             $octave = 0 if $octave < 0;
-          } elsif $o_spec ~~ m<^ _u (\d+) $> {    # relative with _uN
+        } elsif $o_spec ~~ m<^ _u (\d+) $> {    # relative with _uN
             $octave += $0;
             $octave = 10 if $octave > 10;
-          } else {
+        } else {
             die "Unexpected error 5176123";
-          }
-
-          my $note_value = ($note + $octave * 12).Int;
-
-          # Enforce sanity...
-          while $note_value < 0   { $note_value += 12 } # bump up an octave
-          while $note_value > 127 { $note_value -= 12 } # drop down an octave
-            # 12 = number of MIDI notes in an octive
-
-          @new-notes.push: $note_value;
         }
-        default {
+        
+        my $note_value = ($note + $octave * 12).Int;
+        
+        # Enforce sanity...
+        while $note_value < 0   { $note_value += 12 } # bump up an octave
+        while $note_value > 127 { $note_value -= 12 } # drop down an octave
+        # 12 = number of MIDI notes in an octive
+        
+        @new-notes.push: $note_value;
+      }
+      default {
           fail "Unknown note/rest option: \"$arg\"" if $arg.length;
-        }
-    }
-  } # given
+      }
+    } # given
   }
   @new-notes;
 }

@@ -6,6 +6,7 @@ my $Debug = 1;
 my $VERSION = '0.83';
 
 use MIDI::Event;
+use MIDI::Utility;
 
 has @.events;
 has $.type = Buf.new(0x4d, 0x54, 0x72, 0x6b);
@@ -232,19 +233,19 @@ method raku(*%options) { # dump a track's contents
 
   my $indent = '    ';
   print(
-	$indent, 'MIDI::Track->new({', "\n",
-	$indent, "  type => ", MIDI::dump-quote($!type), ",\n",
+	$indent, 'MIDI::Track->new(%(', "\n",
+	$indent, "  type => ", dump-quote($!type), ",\n",
 	$!data.defined ??
 	  ( $indent, "  data => ",
-	    MIDI::dump-quote($!data), ",\n" )
+	    dump-quote($!data), ",\n" )
 	  !! (),
-	$indent, "  events => [  # ", +@!events, " events.\n",
+	$indent, "  events => @(  # ", +@!events, " events.\n",
        );
   for @!events -> $event {
-    print $indent, $event.raku;
-    # was: print( $indent, "    [", &MIDI::-dump-quote(@$event), "],\n" );
+    print $indent, $event.raku, ',';
+    # was: print( $indent, "    [", &dump-quote(@$event), "],\n" );
   }
-  print( "$indent  ]\n$indent}),\n$indent\n" );
+  print( "$indent  }\n$indent)),\n$indent\n" );
   return;
 }
 
@@ -299,9 +300,9 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
   my $encoded-buf = Buf.new();
   for @events -> $event {
       my $encoded-event = $event.encode($maybe-running-status, $last-status);
-      dd $encoded-event;
+#      dd $encoded-event;
       $encoded-buf ~= $encoded-event;
-      dd $encoded-buf;
+#      dd $encoded-buf;
   }
   $encoded-buf;
 }

@@ -306,7 +306,7 @@ method read-from-file($source, *%options) {
 
 note "read-from-file: ", $source, ' ', %options.perl;
   fail "No source file specified" unless $source.defined && $source;
-  my $IN-MIDI = $source.IO.open: :bin :r or fail "Can't open $source for reading: '$!'\n";
+  my $IN-MIDI = $source.IO.open: :bin, :r or fail "Can't open $source for reading: '$!'\n";
 
   self.read-from-handle($IN-MIDI, |%options);
   $IN-MIDI.close ||
