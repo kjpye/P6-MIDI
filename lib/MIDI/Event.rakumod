@@ -1058,7 +1058,9 @@ method encode-text-event($delta-time, $cmd, $text --> Buf) {
  Each class provides at least the following methods:
 
 1. encode -- which encodes the event to a Buf
+
 1. raku   -- which provides a printable version of the object
+
 1. type   -- which provides a printable version of the event type.
 
 =end pod
