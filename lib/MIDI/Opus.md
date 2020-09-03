@@ -58,7 +58,7 @@ This grid quantizes an opus. It simply calls MIDI::Score::quantize on every trac
 
   * the method $opus.dump( ...options... )
 
-Dumps the opus object as a bunch of text, for your perusal. Options include: `flat`, if true, will have each event in the opus as a tab-delimited line -- or as delimited with whatever you specify with option `delimiter`; *otherwise*, dump the data as Perl code that, if run, would/should reproduce the opus. For concision's sake, the track data isn't dumped, unless you specify the option `dump-tracks` as true.
+Dumps the opus object as a bunch of text, for your perusal. Options include: `flat`, if true, will have each event in the opus as a tab-delimited line -- or as delimited with whatever you specify with option `delimiter`; *otherwise*, dump the data as Raku code that, if run, would/should reproduce the opus. For concision's sake, the track data isn't dumped, unless you specify the option `dump-tracks` as true.
 
   * the method $opus.write-to-file('filespec', { ...options...} )
 
@@ -130,19 +130,23 @@ But I've never tested this. Let me know if you get it working right, OK? If anyo
 NOTE ON WARN-ING AND DIE-ING
 ============================
 
-In the case of trying to parse a malformed MIDI file (which is not a common thing, in my experience), this module (or MIDI::Track or MIDI::Event) may warn() or die() (Actually, carp() or croak(), but it's all the same in the end). For this reason, you shouldn't use this suite in a case where the script, well, can't warn or die -- such as, for example, in a CGI that scans for text events in a uploaded MIDI file that may or may not be well-formed. If this *is* the kind of task you or someone you know may want to do, let me know and I'll consider some kind of 'no-die' parameter in future releases. (Or just trap the die in an eval { } around your call to anything you think you could die.)
+In the case of trying to parse a malformed MIDI file (which is not a common thing, in my experience), this module (or MIDI::Track or MIDI::Event) may fail(). For this reason, you shouldn't use this suite in a case where the script, well, can't fail -- such as, for example, in a CGI that scans for text events in a uploaded MIDI file that may or may not be well-formed. If this *is* the kind of task you or someone you know may want to do, let me know and I'll consider some kind of 'no-die' parameter in future releases. (Or just trap the die in a try { } around your call to anything you think you could die.)
 
 COPYRIGHT 
 ==========
 
 Copyright (c) 1998-2002 Sean M. Burke. All rights reserved.
 
-This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+Copyright (c) 2020 Kevin J. Pye, All rights reserved.
+
+This library is free software; you can redistribute it and/or modify it under the same terms as Perl or Raku themselves.
 
 AUTHORS
 =======
 
-Sean M. Burke `sburke@cpan.org` (until 2010)
+Sean M. Burke `sburke@cpan.org` (Perl version until 2010)
 
-Darrell Conklin `conklin@cpan.org` (from 2010)
+Darrell Conklin `conklin@cpan.org` (Perl version from 2010)
+
+Kevin Pye `kjpye@cpan.org` (Raku version)
 

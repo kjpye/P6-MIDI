@@ -1,11 +1,9 @@
 use v6.d+;
 
-class MIDI::Score {
+unit class MIDI::Score;
 
-    use MIDI::Event;
+use MIDI::Event;
     
-my $VERSION = '0.84';
-
 =begin pod
 =head1 NAME
 
@@ -135,9 +133,10 @@ unambiguously denote items in an event structure.
 
 These, below, are all the items that can appear in a score.
 This is basically just a repetition of the table in
-L<MIDI::Event>, with starttime substituting for dtime --
+L<MIDI::Event>, with starttime substituting for dtime,
+and note-on and note-off replaced by note--
 so refer to L<MIDI::Event> for an explanation of what the data types
-(like "velocity" or "pitch_wheel").
+(like "velocity" or "pitch_wheel") are.
 As far as order, the first items are generally the most important:
 
 =item ('note', I<starttime>, I<duration>, I<channel>, I<note>, I<velocity>)
@@ -214,12 +213,11 @@ As far as order, the first items are generally the most important:
 
 This module provides these functions:
 
-=item $score2_r = MIDI::Score::copy_structure($score_r)
+=item $score2 = MIDI::Score::copy-structure($score)
 
-This takes a I<reference> to a score structure, and returns a
-I<reference> to a copy of it. Example usage:
+This takes a score structure, and returns a copy of it. Example usage:
 
-          @new_score = @{ MIDI::Score::copy_structure( \@old_score ) };
+          @new-score = @( MIDI::Score::copy-structure( @old-score ) );
 
 =end pod
 
@@ -228,7 +226,7 @@ has $.duration = 0;
 
 sub copy-structure {
   return &MIDI::Event::copy-structure(@_);
-  # hey, a LoL is an LoL
+  # hey, an array of events (sorry -- notes) is an array of events
 }
 ##########################################################################
 
@@ -236,7 +234,7 @@ sub copy-structure {
 =item $events = $score.events( )
 
 This method returns an array containing the standard MIDI events
-corresponding to the notes in the scoer.
+corresponding to the notes in the score.
 
 =end pod
 
@@ -256,7 +254,7 @@ method events {
 	    note-number => $note.note-number,
 	    velocity    => $note.velocity
 	);
-	my $note-off = MIDI::Event::Note-off.new(
+	my $note-off = MIDI::Event::Note-on.new(
 	    time        => $note.time + $note.duration,
 	    channel     => $note.channel,
 	    note-number => $note.note-number,
@@ -280,7 +278,7 @@ method events {
     $event.time = $delta; # Swap it in
     @newevents.push: $event;
   }
-  return @newevents;
+  @newevents;
 }
 ###########################################################################
 
@@ -294,27 +292,26 @@ This method returns an sequence with the notes in the score sorted.
 =end pod
 
 method sort {
-  # take a reference to a score LoL, and sort it by note start time,
-  # and return a reference to that sorted LoL.  Notes from the same
+  # take a score, and sort it by note start time,
+  # and return that sorted list of notes.  Notes from the same
   # time must be left in the order they're found!!!!  That's why we can't
   # just use sort { $a->[1] <=> $b->[1] } (@$score_r)
 
-  # Except in Perl6, where sort is stable!
+  # Except in Raku, where sort is stable!
 
   .notes.sort({$^a.time <=> $^b.time});
 }
 ###########################################################################
 
 =begin pod
-=item $score_r = MIDI::Score::events_r_to_score_r( $events_r )
+=item $score = MIDI::Score::events-to-score( $events )
 
-=item ($score_r, $ticks) = MIDI::Score::events_r_to_score_r( $events_r )
+=item ($score, $ticks) = MIDI::Score::events-to-score( $events )
 
-This takes a I<reference> to an event structure, converts it to a
-score structure, which it returns a I<reference> to.  If called in
-list context, also returns a count of the number of ticks that
+This takes an event structure, converts it to a
+score, which includes a count of the number of ticks that
 structure takes to play (i.e., the end-time of the temporally last
-item).
+item). This can be accessed as $score.duration.
 
 =end pod
 
@@ -323,7 +320,7 @@ sub make-index($a, $b) {
 }
 
 our sub events-to-score($events, *%options) {
-  # Returns the score AND the total tick time
+  # Returns the score, which includes an attribute giving the length (in ticks) of the score
 
   my $time = 0;
   if %options<no-note-abstraction> {
@@ -336,7 +333,7 @@ our sub events-to-score($events, *%options) {
       $nevent.time = $time;
       $time = $new-time;
     }
-    return MIDI::Score.new(notes => @score, duration => $time);
+    MIDI::Score.new(notes => @score, duration => $time);
   } else {
     my %note = ();
     my @score =
@@ -377,7 +374,6 @@ our sub events-to-score($events, *%options) {
 	    .time += $time;
 	}
     }
-#    return(@score, $time) if wantarray;
     MIDI::Score.new(notes => @score, duration => $time);
   }
 }
@@ -391,22 +387,16 @@ the event structure you pass a reference to.
 =end pod
 
 method dump-score {
-  say .perl;
-#  print "\@notes = (   # ", @.elems, " notes...\n";
-#  for .notes -> $note {
-#    print " [", &MIDI::_dump_quote(@$note), "],\n" if @$note;
-#  }
-#  print ");\n";
-#  return;
+  say .raku;
 }
 
 ###########################################################################
 
 =begin pod
-=item MIDI::Score::quantize( $score_r )
+=item MIDI::Score::quantize( $score )
 
-This takes a I<reference> to a score structure, performs a grid
-quantize on all events, returning a new score reference with new
+This takes a score, performs a grid
+quantize on all events, returning a new score with new
 quantized events.  Two parameters to the method are: 'grid': the
 quantization grid, and 'durations': whether or not to also quantize
 event durations (default off).
@@ -437,21 +427,23 @@ method quantize(*%options) {
 ###########################################################################
 
 =begin pod
-=item MIDI::Score::skyline( $score_r )
+=item MIDI::Score::skyline( $score )
 
-This takes a I<reference> to a score structure, performs skyline
+Note: This method is not yet implemented in this version.
+           
+This takes a score structure, performs skyline
 (create a monophonic track by extracting the event with highest pitch
 at unique onset times) on the score, returning a new score reference.
-The parameters to the method is: 'clip': whether durations of events
+The parameter to the method is: 'clip': whether durations of events
 are preserved or possibly clipped and modified.
 
 To explain this, consider the following (from Bach 2 part invention
 no.6 in E major):
 
-     |------e------|-------ds--------|-------d------|...
-|****--E-----|-------Fs-------|------Gs-----|...
+      |------e------|-------ds--------|-------d------|...
+ |****--E-----|-------Fs-------|------Gs-----|...
 
-Without duration cliping, the skyline is E, Fs, Gs...
+Without duration clipping, the skyline is E, Fs, Gs...
 
 With duration clipping, the skyline is E, e, ds, d..., where the
 duration of E is clipped to just the * portion above
@@ -459,35 +451,31 @@ duration of E is clipped to just the * portion above
 =end pod
 
 # new in 0.83! author DC
-sub skyline($score, *%options) {
+method skyline(*%options) {
     my $clip = %options<clip>;
-    my $new_score = @();
-    my %events = %();
-    my $n_event;
-    my ($typeidx,$stidx,$duridx,$pitchidx) = (0,1,2,4); # create some nicer event indices
+    my @new-events;
 
-    for @($score) -> $event {
-	if ($event[$typeidx] eq "note") {push @(%events{$event[$stidx]}), $event;}
-	else {push @($new_score), $event;}
+    fail "skyline not yet implemented";
+    
+    my $current-high = -1;
+    my $current-note;
+    my $current-time;
+    my $next-note;
+    my $next-time;
+    my $next-high = -1;
+    my $next-event;
+    for @!notes.sort: {$^a.time <=> $^b.time} -> $event {
+        if $event.time == $current-time {
+            if $event.note-number > $next-high {
+                $next-note = $event;
+                $next-high = $event.note-number;
+            }
+        } else {
+            @new-events.push: $next-note;
+            ########## TODO TODO TODO ##############
+        }
     }
-    my $loff = 0; my $lev = [];
-# iterate over increasing onsets
-    for %events.keys.sort: {$^a <=> $^b} -> $onset {
-        # find highest pitch at this onset
-        my $ev = {@(%events{$onset}).sort: {$^b[$pitchidx] <=> $^a[$pitchidx]}}[0] ;
-	if $onset >= ($lev[$stidx] + $lev[$duridx]) {
-	    @($new_score).push: $ev;
-	    $lev = $ev;
-	}
-	elsif ($clip) {
-	    if $ev[$pitchidx] > $lev[$pitchidx] {
-		$lev[$duridx] = $ev[$stidx] - $lev[$stidx];
-		@($new_score).push: $ev;
-		$lev = $ev;
-	    }
-	}
-    }
-    $new_score;
+    MIDI::Score.new(events => @new-events, duration => @new-events[*-1].time);
 }
 
 ###########################################################################
@@ -498,15 +486,16 @@ sub skyline($score, *%options) {
 
 Copyright (c) 1998-2002 Sean M. Burke. All rights reserved.
 
+Copyright (c) 2020 Kevin J. Pye. All rights reserved.
+
 This library is free software; you can redistribute it and/or
-modify it under the same terms as Perl itself.
+modify it under the same terms as Perl or Raku themselves.
 
 =head1 AUTHORS
 
-Sean M. Burke C<sburke@cpan.org> (until 2010)
+Sean M. Burke C<sburke@cpan.org> (Perl version until 2010)
 
-Darrell Conklin C<conklin@cpan.org> (from 2010)
+Darrell Conklin C<conklin@cpan.org> (Perl version from 2010)
 
+Kevin Pye C<kjpye@cpan.org> (Raku version)
 =end pod
-
-}

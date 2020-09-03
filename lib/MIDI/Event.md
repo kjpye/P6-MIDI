@@ -21,11 +21,11 @@ DESCRIPTION
 
 Functions and lists to do with MIDI events and MIDI event structures.
 
-An event is object, with each event type ab object in a different class, like:
+An event is an object, with each event type an object in a different class, like:
 
     MIDI::Event::Note-on(time => 141,
                          channel => 4,
-                         note=number => 50,
+                         note-number => 50,
                          velocity => 64)
 
 An *event structure* is a list of such events -- an array of objects.
@@ -62,7 +62,9 @@ This module provides three functions of interest, which all act upon event struc
 
   * MIDI::Event::decode( $data, ...options... )
 
-This takes a Buf containing binary MIDI data and decodes it into a new event structure (a LoL), a *reference* to which is returned. Options are:
+This takes a Buf containing binary MIDI data and decodes it into a new event structure, which is returned.
+
+Options are:
 
   * 'include' => LIST
 
@@ -86,7 +88,7 @@ Just like 'event-callback'; but if you specify this, the callback is called *ins
 
   * MIDI::Event::encode( @events, {...options...})
 
-This takes an event structure (an array of Nidi::Event objects) and encodes it as binary data, which it returns in a Buf. Options:
+This takes an event structure (an array of Midi::Event objects) and encodes it as binary data, which it returns in a Buf. Options:
 
   * 'unknown-callback' => CODE
 
@@ -117,13 +119,13 @@ Note: If you're encoding just a single event at a time or less than a whole trac
       ],
       'never-add-eot' => 1 );
 
-which just encodes that one event *as* an event structure of one event -- i.e., an array thatconsistes of only one element.
+which just encodes that one event *as* an event structure of one event -- i.e., an array that consists of only one element.
 
-But note that running status will not always apply when you're encoding less than a whole trackful at a time, since running status works only within a LoL encoded all at once. This'll result in non-optimally compressed, but still effective, encoding.
+But note that running status will not always apply when you're encoding less than a whole trackful at a time, since running status works only within an array encoded all at once. This will result in non-optimally compressed, but still effective, encoding.
 
   * MIDI::Event::copy-structure()
 
-This takes an event structure, and returns a copy of it. If you're thinking about using this, you probably should want to use the more straightforward
+This takes an event structure, and returns a copy of it. If you're thinking about using this, you probably want to use the more straightforward
 
     $track2 = $track.copy
 
@@ -174,7 +176,7 @@ And these are the events:
 
   * MIDI::Event::Note-on(*dtime*, *channel*, *note*, *velocity*)
 
-  * MIDILLEvent::Ley_after_touch(*dtime*, *channel*, *note*, *velocity*)
+  * MIDILLEvent::Key_after_touch(*dtime*, *channel*, *note*, *velocity*)
 
   * MIDI::Event::Control_change(*dtime*, *channel*, *controller(0-127)*, *value(0-127)*)
 
@@ -241,4 +243,10 @@ And these are the events:
   * MIDI::Event::Tune-request(*dtime*)
 
   * MIDI::Event::Raw-data(*dtime*, *raw*)
+
+    Each separate event type has a separate class.
+
+    Each class provides at least the following methods:
+
+#1. encode -- which encodes the event to a Buf #2. raku -- which provides a printable version of the object #3. type -- which provides a printable version of the event type.
 

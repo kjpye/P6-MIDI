@@ -8,8 +8,8 @@ my $VERSION = '0.83';
 use MIDI::Event;
 use MIDI::Utility;
 
-has @.events;
-has $.type = Buf.new(0x4d, 0x54, 0x72, 0x6b);
+has @.events is rw;
+has $.type = 'MTrk'.encode;
 has $.data is rw;
 
 =begin pod
@@ -26,7 +26,7 @@ MIDI::Track -- functions and methods for MIDI tracks
      MIDI::Event::Note-on(time => 0, channel => 4, note-number => 50, velocity => 96);
      MIDI::Event::Note-off(time => 300, channel => 4, note-number => 50, velocity => 96);
  );
- $opus = MIDI::Opus->new(format => 0,  ticks => 240,  tracks => $taco-track);
+ $opus = MIDI::Opus->new(format => 0,  ticks => 240,  tracks => @($taco-track));
    ...etc...
 
 
@@ -38,11 +38,12 @@ MIDI tracks have, currently, three attributes: a type, events, and
 data.  Almost all tracks you'll ever deal with are of type "MTrk", and
 so this is the type by default.  Events are what make up an MTrk
 track.  If a track is not of type MTrk, or is an unparsed MTrk, then
-it has (or better have!) data.
+it has (or better have!) data, which is just a bare Buf; The MIDI modules
+do not interpret the data except for parsing it for events.
 
 When an MTrk track is encoded, if there is data defined for it, that's
 what's encoded (and "encoding data" means just passing it thru
-untouched).  Note that this happens even if the data defined is ""
+untouched).  Note that this happens even if the data defined is empty
 (but it won't happen if the data is undef).  However, if there's no
 data defined for the MTrk track (as is the general case), then the
 track's events are encoded, via a call to C<MIDI::Event::encode>.
@@ -53,10 +54,11 @@ track.)
 If a non-MTrk track is encoded, its data is encoded.  If there's no
 data for it, it acts as a zero-length track.
 
-In other words, 1) events are meaningful only in an MTrk track, 2) you
-probably don't want both data and events defined, and 3) 99.999% of
-the time, just worry about events in MTrk tracks, because that's all
-you ever want to deal with anyway.
+In other words,
+#1. events are meaningful only in an MTrk track,
+#2. you probably don't want both data and events defined, and
+#3. 99.999% of the time, just worry about events in MTrk tracks,
+because that's all you ever want to deal with anyway.
 
 =head1 CONSTRUCTOR AND METHODS
 
@@ -123,11 +125,8 @@ method copy {
   # Duplicate a given track.  Even dupes the events.
   # Call as $new-one = $track.copy
 
-  my $new = self.new;
-  # a first crude dupe
-  $new.type: $!type;
+  my $new = .clone;
   $new.events = MIDI::Event::copy-structure( @!events );
-  $new.data: $!data;
   return $new;
 }
 
@@ -138,6 +137,7 @@ method copy {
 skylines the entire track.  Modifies the track.  See MIDI::Score for
 documentation on skyline
 
+Note that this is not yet implemented in this version.
 =end pod
 
 method skyline(*%options) {
@@ -154,40 +154,42 @@ method skyline(*%options) {
 =begin pod
 =item the method $track.events( @events )
 
-Returns the list of events in the track, possibly after having set it
-to @events, if specified and not empty.  (If you happen to want to set
-the list of events to an empty list, for whatever reason, you have to use
-"$track->events-r([])".)
+events is a standard Raku access method for the @!events array in the object.
 
-In other words: $track.events(@events) is how to set the list of events
-(assuming @events is not empty), and @events = $track.events is how to
-read the list of events.
+Thus $track.events is an arrayof events, and the list of events can be set with
+    $track.events = @events;
 
 =end pod
 
 =begin pod
 =item the method $track.type( 'MFoo' )
 
-Returns the type of $track, after having set it to 'MFoo', if provided.
+type is the standard Raku accessor for the track type. Note that the type is
+B<not> a string, but a Buf. So by default $track.type will give 'MTrk'.encode,
+and you can set the type attribute with
+    $track.type = 'MHdr'.encode
+for example.
+
 You probably won't ever need to use this method, other than in
 a context like:
 
-          if( $track.type eq 'MTrk' ) { # The usual case
+          if( $track.type eq 'MTrk'.encode ) { # The usual case
             give-up-the-funk($track);
           } # Else just keep on walkin'!
 
-Track types must be 4 bytes long; see L<MIDI::Filespec> for details.
-*** and must be a Buf!!!
+Track types must be 4 bytes long; see L<MIDI::Filespec> for details
+B<and must be a Buf>!
 
 =end pod
 
 =begin pod
 =item the method $track.data( $kooky-binary-data )
 
-Returns the data from $track, after having set it to
-$kooky-binary-data, if provided -- even if it's zero-length!  You
-probably won't ever need to use this method.  For your information,
-$track->data(Nil) is how to undefine the data for a track.
+The standard Raku accessor for the I<data> attribute.
+
+Note that, like the I<type> attribute, this is not a string, but a Buf.
+You probably won't ever need to use this method.  For your information,
+$track.data = Nil is how to undefine the data for a track.
 
 =end pod
 
@@ -202,15 +204,12 @@ event list for $track.  It's just sugar for:
           $track.events.push: $event;
 
 If you want anything other than the equivalent of that, like some
-kinda splice(), then do it yourself with $track.events-r,
+kind of splice(), then do it yourself by directly modifying $track.events.
 
 =end pod
 
-method new-event(*@args) {
-  # Usage:
-  #  $this-track.new-event('text-event', 0, 'Lesbia cum Prono');
-
-  @!events.push: MIDI::Event.new( type => @args[0], delta-time => @args[1], args => @args[2-*] );
+method new-event($event) {
+  @!events.push: $event;
 }
 
 ###########################################################################
@@ -218,52 +217,42 @@ method new-event(*@args) {
 =begin pod
 =item the method $track.raku( ...options... )
 
-This dumps the track's contents for your inspection.  The dump format
-is code that looks like Raku code that you'd use to recreate that track.
-This routine outputs with just C<print>, so you can use C<select> to
-change where that'll go.  I intended this to be just an internal
-routine for use only by the method MIDI::Opus::dump, but I figure it
-might be useful to you, if you need to dump the code for just a given
-track.
-Read the source if you really need to know how this works.
+This generates a string containing the track's contents for your inspection.
+The dump format is code that looks like Raku code that you'd use to recreate
+that track.
 
 =end pod
 
 method raku(*%options) { # dump a track's contents
 
   my $indent = '    ';
-  print(
-	$indent, 'MIDI::Track->new(%(', "\n",
-	$indent, "  type => ", dump-quote($!type), ",\n",
-	$!data.defined ??
-	  ( $indent, "  data => ",
-	    dump-quote($!data), ",\n" )
-	  !! (),
-	$indent, "  events => @(  # ", +@!events, " events.\n",
-       );
-  for @!events -> $event {
-    print $indent, $event.raku, ',';
-    # was: print( $indent, "    [", &dump-quote(@$event), "],\n" );
+  my $string = $indent ~ 'MIDI::Track->new(%(' ~ "\n" ~
+	$indent ~ '  type => ' ~ dump-quote($!type) ~ ",\n";
+  if $!data.defined {
+      $string ~=  $indent ~ '  data => ' ~ dump-quote($!data) ~ ",\n";
   }
-  print( "$indent  }\n$indent)),\n$indent\n" );
-  return;
+  $string ~= $indent ~ '  events => @(  # ' ~ +@!events ~ " events.\n";
+  for @!events -> $event {
+    $string ~=  $indent ~ $event.raku ~ ',';
+  }
+  $string ~= "$indent  }\n$indent)),\n$indent\n";
 }
 
-method encode-events(*%options) { # encode an array of events, presumably for writing to a file
+sub encode-events($events, *%options) { # encode an array of events, presumably for writing to a file
   # Calling format:
-  #   $data = MIDI::Event::encode( @events, options );
+  #   $data = encode(@events, ...options... );
   # Returns an array of track data.
 
   # If you want to use this to encode a /single/ event,
-  # you still have to do it as a reference to an event structure (a LoL)
+  # you still have to do it as an array events
   # that just happens to have just one event.  I.e.,
-  #   encode( [ $event ] ) or encode( [ [ 'note-on', 100, 5, 42, 64] ] )
+  #   encode-events( @($event) ) or encode-events( @( MIDI::Event::Note-on.new(:time(100), :channel(5), :note-number(24), :velocity:(64)) ) )
   # If you're doing this, consider the never-add-eot track option, as in
-  #   print MIDI ${ encode( [ $event], { 'never-add-eot' => 1} ) };
+  #   MIDI.put encode-events( @($event), never-add-eot => 1 );
 
   my $last-status = -1;
  
-  my @events = @!events.clone;
+  my @events = $events.clone;
 
   my $unknown-callback = Nil;
   $unknown-callback = %options<unknown-callback>;
@@ -281,7 +270,7 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
 	    @events.push: MIDI::Event::End-track.new;
 	  } else {
 	    # NORMAL CASE: replace it with an end-track, leaving the DTime
-	    $last.type('end-track');
+            @events[*-1] = MIDI::Event::End-track.new(time => $last.time);
 	  }
         } else {
           # last event was neither a 0-length text-event nor an end-track
@@ -289,22 +278,15 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
         }
       }
     } else { # an eventless track!
-      @events = [ MIDI::Event::End-track.new() ];
+      @events = @( MIDI::Event::End-track.new() );
     }
   }
 
   my $maybe-running-status = not %options<no-running-status>;
   $last-status = -1;
 
-  # [~] @events.map: { .encode($maybe-running-status, $last-status) };
-  my $encoded-buf = Buf.new();
-  for @events -> $event {
-      my $encoded-event = $event.encode($maybe-running-status, $last-status);
-#      dd $encoded-event;
-      $encoded-buf ~= $encoded-event;
-#      dd $encoded-buf;
-  }
-  $encoded-buf;
+ [~] @events.map: { .encode($maybe-running-status, $last-status) };
+
 }
 
 ###########################################################################
@@ -315,30 +297,26 @@ method encode-events(*%options) { # encode an array of events, presumably for wr
 
 method encode(*%options) { # encode a track object into track data (not a chunk)
   # Calling format:
-  #  $data = $track->encode( .. options .. )
-  # The (optional) argument is an anonymous hash of options.
-  # Returns a REFERENCE to track data.
+  #  $data = $track.encode( .. options .. )
+  # Returns a Buf containing the encoded track.
   #
-
-  my $data = '';
 
   if $!data.defined and $!data {
     # It might be 0-length, by the way.  Might this be problematic?
-    $data = $!data;
+    $!data;
     # warn "Encoding 0-length track data!" unless length $data;
   } else { # Data is not defined for this track.  Parse the events
-    if $!type eq Buf.new(0x4d, 0x54, 0x72, 0x6b) or  $data.chars == 0
+    if $!type eq 'MTrk'.encode  or  +$!data == 0
         and @!events.defined
              # not just exists -- but DEFINED!
     {
       # note "Encoding ", @!events if $Debug;
-      $data = self.encode-events(|%options);
+      encode-events(@!events, |%options);
     } else {
-      $data = ''; # what else to do?
       warn "Spork 8851\n" if $Debug;
+      Buf.new(); # what else to do?
     }
   }
-  return $data;
 }
 
 ###########################################################################
@@ -349,13 +327,13 @@ our sub decode($type, $data, *%options) is export { # returns a new object, but 
   # decode track data (not a chunk) into a new track object
   # Calling format:
   #  $new-track = 
-  #   MIDI::Track::decode($type, \$track-data, { .. options .. })
+  #   MIDI::Track::decode($type, $track-data, { .. options .. })
   # Returns a new track-object.
-  # The anonymous hash of options is, well, optional
+  # The options are, well, optional
 
   my $track = MIDI::Track.new( type => $type );
   
-  if $type eq Buf.new(0x4d, 0x54, 0x72, 0x6b) and not %options<no-parse> {
+  if $type eq 'MTrk'.encode and not %options<no-parse> {
     $track.events = MIDI::Event::decode($data, |%options);
         # And that's where all the work happens
   } else {
@@ -372,9 +350,10 @@ our sub decode($type, $data, *%options) is export { # returns a new object, but 
 
 Copyright (c) 1998-2002 Sean M. Burke. All rights reserved.
 
-Copyright (C) 2020 Kevin J. Pye.
+Copyright (C) 2020 Kevin J. Pye. All rights reserved.
 
-modify it under the same terms as Raku itself.
+This library is free software; you can redistribute it and/or
+modify it under the same terms as Perl or Raku themselves.
 
 =head1 AUTHOR
 

@@ -109,7 +109,7 @@ Besides the new score structure item `note` (covered above), the possible conten
 
 To avoid the long periphrase "items in a score structure", I will occasionally refer to items in a score structure as "notes", whether or not they are actually `note` commands. This leaves "event" to unambiguously denote items in an event structure.
 
-These, below, are all the items that can appear in a score. This is basically just a repetition of the table in [MIDI::Event](MIDI::Event), with starttime substituting for dtime -- so refer to [MIDI::Event](MIDI::Event) for an explanation of what the data types (like "velocity" or "pitch_wheel"). As far as order, the first items are generally the most important:
+These, below, are all the items that can appear in a score. This is basically just a repetition of the table in [MIDI::Event](MIDI::Event), with starttime substituting for dtime, and note-on and note-off replaced by note-- so refer to [MIDI::Event](MIDI::Event) for an explanation of what the data types (like "velocity" or "pitch_wheel") are. As far as order, the first items are generally the most important:
 
   * ('note', *starttime*, *duration*, *channel*, *note*, *velocity*)
 
@@ -186,15 +186,15 @@ FUNCTIONS
 
 This module provides these functions:
 
-  * $score2_r = MIDI::Score::copy_structure($score_r)
+  * $score2 = MIDI::Score::copy-structure($score)
 
-This takes a *reference* to a score structure, and returns a *reference* to a copy of it. Example usage:
+This takes a score structure, and returns a copy of it. Example usage:
 
-    @new_score = @{ MIDI::Score::copy_structure( \@old_score ) };
+    @new-score = @( MIDI::Score::copy-structure( @old-score ) );
 
   * $events = $score.events( )
 
-This method returns an array containing the standard MIDI events corresponding to the notes in the scoer.
+This method returns an array containing the standard MIDI events corresponding to the notes in the score.
 
   * @events = $score.sort()
 
@@ -202,33 +202,35 @@ This method returns an sequence with the notes in the score sorted.
 
     @sorted-events = $old-score.sort();
 
-  * $score_r = MIDI::Score::events_r_to_score_r( $events_r )
+  * $score = MIDI::Score::events-to-score( $events )
 
-  * ($score_r, $ticks) = MIDI::Score::events_r_to_score_r( $events_r )
+  * ($score, $ticks) = MIDI::Score::events-to-score( $events )
 
-This takes a *reference* to an event structure, converts it to a score structure, which it returns a *reference* to. If called in list context, also returns a count of the number of ticks that structure takes to play (i.e., the end-time of the temporally last item).
+This takes an event structure, converts it to a score, which includes a count of the number of ticks that structure takes to play (i.e., the end-time of the temporally last item). This can be accessed as $score.duration.
 
   * MIDI::Score::dump-score( )
 
 This dumps (via `print`) a text representation of the contents of the event structure you pass a reference to.
 
-  * MIDI::Score::quantize( $score_r )
+  * MIDI::Score::quantize( $score )
 
-This takes a *reference* to a score structure, performs a grid quantize on all events, returning a new score reference with new quantized events. Two parameters to the method are: 'grid': the quantization grid, and 'durations': whether or not to also quantize event durations (default off).
+This takes a score, performs a grid quantize on all events, returning a new score with new quantized events. Two parameters to the method are: 'grid': the quantization grid, and 'durations': whether or not to also quantize event durations (default off).
 
 When durations of note events are quantized, they can get 0 duration. These events are *not dropped* from the returned score, and it is the responsiblity of the caller to deal with them.
 
-  * MIDI::Score::skyline( $score_r )
+  * MIDI::Score::skyline( $score )
 
-This takes a *reference* to a score structure, performs skyline (create a monophonic track by extracting the event with highest pitch at unique onset times) on the score, returning a new score reference. The parameters to the method is: 'clip': whether durations of events are preserved or possibly clipped and modified.
+Note: This method is not yet implemented in this version.
+
+This takes a score structure, performs skyline (create a monophonic track by extracting the event with highest pitch at unique onset times) on the score, returning a new score reference. The parameter to the method is: 'clip': whether durations of events are preserved or possibly clipped and modified.
 
 To explain this, consider the following (from Bach 2 part invention no.6 in E major):
 
     |------e------|-------ds--------|-------d------|...
 
-|****--E-----|-------Fs-------|------Gs-----|...
+    |****--E-----|-------Fs-------|------Gs-----|...
 
-Without duration cliping, the skyline is E, Fs, Gs...
+Without duration clipping, the skyline is E, Fs, Gs...
 
 With duration clipping, the skyline is E, e, ds, d..., where the duration of E is clipped to just the * portion above
 
@@ -237,12 +239,16 @@ COPYRIGHT
 
 Copyright (c) 1998-2002 Sean M. Burke. All rights reserved.
 
-This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+Copyright (c) 2020 Kevin J. Pye. All rights reserved.
+
+This library is free software; you can redistribute it and/or modify it under the same terms as Perl or Raku themselves.
 
 AUTHORS
 =======
 
-Sean M. Burke `sburke@cpan.org` (until 2010)
+Sean M. Burke `sburke@cpan.org` (Perl version until 2010)
 
-Darrell Conklin `conklin@cpan.org` (from 2010)
+Darrell Conklin `conklin@cpan.org` (Perl version from 2010)
+
+Kevin Pye `kjpye@cpan.org` (Raku version)
 

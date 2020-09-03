@@ -129,7 +129,7 @@ sub dump-quote(*@stuff) is export {
     join(", ",
 	@stuff.map:
 	 { # the cleaner-upper function
-             when Buf {
+             when Buf|utf8 {
                  my $string = '';
                  for $_.list -> $byte {
                      given $byte {

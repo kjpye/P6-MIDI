@@ -108,8 +108,7 @@ method TWEAK(*%args) {
 
   if $!from-file {
     self.read-from-file(%args<from-file>);
-  } elsif $!from-handle
-  {
+  } elsif $!from-handle {
     self.read-from-handle;
   }
 #  return $this;
@@ -127,16 +126,15 @@ read the documentation for the C<copy> method in L<MIDI::Track>.
 
 method copy {
   # Duplicate a given opus.  Even dupes the tracks.
-  # Call as $new-one = $opus->copy
+  # Call as $new-one = $opus.copy
 
-  my $new = self.new( ticks => $!ticks, format => $!format );
-
-  $new.add-track; # ???
-  @!tracks.map: {
-    $new.add-track($_.copy);
+  my $new = self.clone(tracks => @()); # Only does a shallow clone -- we need to follow down the structures
+  
+  for @!tracks -> $track {
+    $new.tracks.push: $track.copy;
   }
 
-  return $new;
+  $new;
 }
 
 method init(*%options) {
@@ -145,14 +143,14 @@ method init(*%options) {
   print "init called against this Opus\n" if $Debug;
   if $Debug {
     if %options {
-#      note "Parameters: ", %options.perl;
+      note "Parameters: ", %options.raku;
     } else {
       note "Null parameters for opus init";
     }
   }
   $!format = %options<format> //  1;
   $!ticks  = %options<ticks>  // 96;
-  @!tracks = %options<tracks> // ();
+  @!tracks = %options<tracks> // @();
 }
 #########################################################################
 
@@ -231,7 +229,7 @@ method quantize(*%options) {
 Dumps the opus object as a bunch of text, for your perusal.  Options
 include: C<flat>, if true, will have each event in the opus as a
 tab-delimited line -- or as delimited with whatever you specify with
-option C<delimiter>; I<otherwise>, dump the data as Perl code that, if
+option C<delimiter>; I<otherwise>, dump the data as Raku code that, if
 run, would/should reproduce the opus.  For concision's sake, the track data
 isn't dumped, unless you specify the option C<dump-tracks> as true.
 
@@ -304,7 +302,7 @@ method read-from-file($source, *%options) {
   #  This is currently meant to be called by only the
   #   MIDI::Opus.new() constructor.
 
-note "read-from-file: ", $source, ' ', %options.perl;
+note "read-from-file: ", $source, ' ', %options.raku;
   fail "No source file specified" unless $source.defined && $source;
   my $IN-MIDI = $source.IO.open: :bin, :r or fail "Can't open $source for reading: '$!'\n";
 
@@ -661,27 +659,30 @@ try to support it natively.
 
 In the case of trying to parse a malformed MIDI file (which is not a
 common thing, in my experience), this module (or MIDI::Track or
-MIDI::Event) may warn() or die() (Actually, carp() or croak(), but
-it's all the same in the end).  For this reason, you shouldn't use
-this suite in a case where the script, well, can't warn or die -- such
+MIDI::Event) may fail().  For this reason, you shouldn't use
+this suite in a case where the script, well, can't fail -- such
 as, for example, in a CGI that scans for text events in a uploaded
 MIDI file that may or may not be well-formed.  If this I<is> the kind
 of task you or someone you know may want to do, let me know and I'll
 consider some kind of 'no-die' parameter in future releases.
-(Or just trap the die in an eval { } around your call to anything you
+(Or just trap the die in a try { } around your call to anything you
 think you could die.)
 
 =head1 COPYRIGHT 
 
 Copyright (c) 1998-2002 Sean M. Burke. All rights reserved.
 
+Copyright (c) 2020 Kevin J. Pye, All rights reserved.
+
 This library is free software; you can redistribute it and/or
-modify it under the same terms as Perl itself.
+modify it under the same terms as Perl or Raku themselves.
 
 =head1 AUTHORS
 
-Sean M. Burke C<sburke@cpan.org> (until 2010)
+Sean M. Burke C<sburke@cpan.org> (Perl version until 2010)
 
-Darrell Conklin C<conklin@cpan.org> (from 2010)
+Darrell Conklin C<conklin@cpan.org> (Perl version from 2010)
+
+Kevin Pye C<kjpye@cpan.org> (Raku version)
 
 =end pod

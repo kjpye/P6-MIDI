@@ -76,11 +76,11 @@ MIDI - read, compose, modify, and write MIDI files
 This suite of modules provides routines for reading, composing, modifying,
 and writing MIDI files.
 
-From FOLDOC (C<http://wombat.doc.ic.ac.uk/foldoc/>):
+From FOLDOC (C<http://foldoc.org/>):
 
 B<MIDI, Musical Instrument Digital Interface>
 
-E<0x3c>multimedia, file formatE<0x3e> (MIDI /mi'-dee/, /mee'-dee/) A
+E<0x3c>music, hardware, protocol, file formatE<0x3e> (MIDI /mi'-dee/, /mee'-dee/) A
 hardware specification and protocol used to communicate note and
 effect information between synthesisers, computers, music keyboards,
 controllers and other electronic music devices. [...]
@@ -108,6 +108,10 @@ guts of existing MIDI files, read the pods in the order given above.
 
 But if you aim to compose music with this suite, read this pod, then
 L<MIDI::Score> and L<MIDI::Simple>, and then skim the rest.
+
+Note that L<MIDI::Simple> is not currently part of this distribution.
+If and when it is released it is likely to look
+significantly different from the Perl version.
 
 
 =head1 INTRODUCTION
@@ -139,16 +143,17 @@ use to the casual user.
 =head1 GOODIES
 
 The bare module MIDI.pm doesn't I<do> much more than C<use> the
-necessary component submodules (i.e., all except MIDI::Simple).  But
-it does provide some hashes you might find useful:
+necessary component submodules (i.e., all except MIDI::Simple).
+
+L<MIDI::Utilities> contains a few utilities which you might find useful:
 
 B<Note numbers <--> a representation of them>
 
-=item C<%MIDI::note2number> and C<%MIDI::number2note>
+=item C<%note2number> and C<%number2note>
 
-C<%MIDI::number2note> correponds MIDI note numbers to a more
+C<%number2note> correponds MIDI note numbers to a more
 comprehensible representation (e.g., 68 to 'Gs4', for G-sharp, octave
-4); C<%MIDI::note2number> is the reverse.  Have a look at the source
+4); C<%note2number> is the reverse.  Have a look at the source
 to see the contents of the hash.
 
 =end pod
@@ -182,11 +187,11 @@ my %note2number = %number2note.reverse;
 
 =begin pod
 
-=item C<%MIDI::patch2number> and C<%MIDI::number2patch>
+=item C<%patch2number> and C<%number2patch>
 
-C<%MIDI::number2patch> correponds General MIDI patch numbers
+C<%number2patch> relates General MIDI patch numbers
 (0 to 127) to English names (e.g., 79 to 'Ocarina');
-C<%MIDI::patch2number> is the reverse.  Have a look at the source
+C<%patch2number> is the reverse.  Have a look at the source
 to see the contents of the hash.
 
 =end pod
@@ -259,9 +264,9 @@ my %patch2number = %number2patch.reverse;
 =begin pod
 =item C<%MIDI::notenum2percussion> and C<%MIDI::percussion2notenum>
 
-C<%MIDI::notenum2percussion> correponds General MIDI Percussion Keys
+C<%notenum2percussion> correponds General MIDI Percussion Keys
 to English names (e.g., 56 to 'Cowbell') -- but note that only numbers
-35 to 81 (inclusive) are defined; C<%MIDI::percussion2notenum> is the
+35 to 81 (inclusive) are defined; C<%percussion2notenum> is the
 reverse.  Have a look at the source to see the contents of the hash.
 
 =end pod
@@ -401,45 +406,4 @@ Darrell Conklin C<conklin@cpan.org> (Perl version from 2010)
 Kevin Pye C<kjpye@cpan.org> (Raku version)
 =end pod
 
-###########################################################################
-
-our sub dump-quote(*@stuff) {
-  # Used variously by some MIDI::* modules.  Might as well keep it here.
-
-  return
-    join(", ",
-	@stuff.map:
-	 { # the cleaner-upper function
-	   if ! $_.chars { # empty string
-	     "''";
-	   } elsif
-                   $_ eq '0' or $! ~~ m/^
-                                          \-?
-                                          <[1..9]> \d*
-                                      $/  # integers
-
-		   # Was just: m/^-?\d+(?:\.\d+)?$/s
-                   # but that's over-broad, as let "0123" thru, which is
-                   # wrong, since that's octal 0123, == decimal 83.
-
-                   # m/^-?(?:(?:[1-9]\d*)|0)(?:\.\d+)?$/s and $_ ne '-0'
-                   # would let thru all well-formed numbers, but also
-                   # non-canonical forms of them like 0.3000000.
-                   # Better to just stick to integers I think.
-	   {
-	     $_;
-	   } elsif # text with junk in it
-	      $_ ~~ s:g/
-                       (<-[\x20 \x21 \x23 \x27..\x3F \x41..\x5B \x5D..\x7E]>)
-                       /\\x{sprintf "%02x", $0.ord}/
-	   {
-	     "\"$_\"";
-	   } else { # text with no junk in it
-	     s:g/\'/\\'/;
-	     "'$_'";
-	   }
-	 }
-	);
-}
-
-###########################################################################
+# dump-quote moved to MIDI::Utilities
