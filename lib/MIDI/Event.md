@@ -55,6 +55,8 @@ the combination of Text-events and Nontext-meta-events.
 
 the combination of all the above lists.
 
+Each Event object has a method *type* which will return a string which can be used to check whether the event is in one of these sets. For example $object.type ∈ $Meta-events will be true if the object is a meta-event.
+
 FUNCTIONS
 =========
 

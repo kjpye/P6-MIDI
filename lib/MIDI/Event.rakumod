@@ -131,12 +131,16 @@ the combination of Text-events and Nontext-meta-events.
 
 the combination of all the above lists.
 
+Each Event object has a method I<type> which will return a string which can be used to check whether the event is in one of these sets. For example
+  $object.type ∈ $Meta-events
+will be true if the object is a meta-event.
+  
 =end pod
 
 ###########################################################################
 # Some public-access lists:
 
-my @MIDI-events = <
+our $MIDI-events is export = Set.new: <
   note-off
   note-on
   key-after-touch
@@ -147,14 +151,14 @@ my @MIDI-events = <
   set-sequence-number
 >;
 
-my @Text-events = <
+our $Text-events is export = Set.new: <
   text-event
   copyright-text-event
   track-name
   instrument-name
   lyric
   marker
-  cu-_point
+  cue-point
   text-event-08
   text-event-09
   text-event-0a
@@ -165,7 +169,7 @@ my @Text-events = <
   text-event-0f
 >;
 
-my @Nontext-meta-events = <
+our $Nontext-meta-events is export = Set.new: <
   end-track
   set-tempo
   smpte-offset
@@ -183,8 +187,8 @@ my @Nontext-meta-events = <
 
 # Actually, 'tune-request', for one, is an F-series event, not a
 #  strictly-speaking meta-event
-my @Meta-events = (@Text-events, @Nontext-meta-events).flat;
-my @All-events = (@MIDI-events, @Meta-events).flat;
+our $Meta-events is export = $Text-events (+) $Nontext-meta-events;
+our $All-events  is export = $MIDI-events (+) $Meta-events;
 
 =begin pod
 =head1 FUNCTIONS
@@ -367,7 +371,7 @@ our sub decode(Buf $data, *%options) { # decode track data into an array of even
 			 # If we get an include (and no exclude), make %exclude a list
 			 #  of all possible events, /minus/ what include specifies
 			 if %options<include> {
-					       %exclude = @All-events Z=> 1;
+					       %exclude = $All-events Z=> 1;
 					       for %options<include> -> $type {
 									       %exclude{$type}:delete;
 									      }
