@@ -35,31 +35,31 @@ GOODIES
 
 For your use in code (as in the code in the Synopsis), this module provides a few lists:
 
-  * @MIDI-events
+  * $MIDI::Event::MIDI-events
 
-a list of all "MIDI events" AKA voice events -- e.g., 'note-on'
+a set of all "MIDI events" AKA voice events -- e.g., 'note-on'
 
-  * @Text-events
+  * $MIDI::Event::Text-events
 
-a list of all text meta-events -- e.g., 'track-name'
+a set of all text meta-events -- e.g., 'track-name'
 
-  * @Nontext-meta-events
+  * $Nontext-meta-events
 
 all other meta-events (plus 'raw-data' and F-series events like 'tune-request').
 
-  * @Meta-events
+  * $MIDI::Event::Meta-events
 
 the combination of Text-events and Nontext-meta-events.
 
-  * @All-events
+  * $MIDI::Event::All-events
 
 the combination of all the above lists.
 
 Each Event object has a method *type* which will return a string which can be used to check whether the event is in one of these sets. For example
 
-    $object.type ∈ $Meta-events
+    $object.type ∈ $MIDI::Event::Meta-events
 
-will be true if the object is a meta-event.
+will be true if and only if the object is a meta-event.
 
 FUNCTIONS
 =========
@@ -133,7 +133,7 @@ But note that running status will not always apply when you're encoding less tha
 
 This takes an event structure, and returns a copy of it. If you're thinking about using this, you probably want to use the more straightforward
 
-    $track2 = $track.copy
+    $track2 = $track.clone
 
 instead. But it's here if you happen to need it.
 
@@ -159,7 +159,7 @@ Events use these data types:
 
   * sequence = a value 0 to 65,535 (0xFFFF)
 
-  * text = a string of 0 or more bytes of ASCII text
+  * text = a string of 0 or more bytes of ASCII text (although this module should work with arbitrary utf-8 encoded text)
 
   * raw = a string of 0 or more bytes of binary data
 
@@ -182,15 +182,15 @@ And these are the events:
 
   * MIDI::Event::Note-on(*dtime*, *channel*, *note*, *velocity*)
 
-  * MIDILLEvent::Key_after_touch(*dtime*, *channel*, *note*, *velocity*)
+  * MIDI::Event::Key-after-touch(*dtime*, *channel*, *note*, *velocity*)
 
-  * MIDI::Event::Control_change(*dtime*, *channel*, *controller(0-127)*, *value(0-127)*)
+  * MIDI::Event::Controller_change(*dtime*, *channel*, *controller(0-127)*, *value(0-127)*)
 
   * MIDI::Event::Patch-change(*dtime*, *channel*, *patch*)
 
-  * MIDI::Event::Channel_after_touch(*dtime*, *channel*, *velocity*)
+  * MIDI::Event::Channel-after-touch(*dtime*, *channel*, *velocity*)
 
-  * MIDI::Event::Pitch-wheel-change', *dtime*, *channel*, *pitch_wheel*)
+  * MIDI::Event::Pitch-wheel-change, *dtime*, *channel*, *pitch_wheel*)
 
   * MIDI::Event::Set-sequence-number(*dtime*, *sequence-number*)
 
@@ -228,7 +228,7 @@ And these are the events:
 
   * MIDI::Event::Set-tempo(*dtime*, *tempo*)
 
-  * MIDI::Event::Smpte_offset(*dtime*, *hr*, *mn*, *se*, *fr*, *ff*)
+  * MIDI::Event::Smpte-offset(*dtime*, *hr*, *mn*, *se*, *fr*, *ff*)
 
   * MIDI::Event::Time-signature(*dtime*, *nn*, *dd*, *cc*, *bb*)
 
