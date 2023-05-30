@@ -453,6 +453,7 @@ And these are the events:
     # loop while there's anything to analyze ...
     my $eot = 0;	# When 1, the event registrar aborts this loop
     ++$event-count;
+    note "Reading event $event-count" if $Debug ≥ 1;
 
     my $E;
     # E for event -- this is what we'll feed to the event registrar
@@ -461,9 +462,11 @@ And these are the events:
     # Slice off the delta time code, and analyze it
 
     $time = getcompint($data, $Pointer);
+    note "Time: $time" if $Debug;
 
     # Now let's see what we can make of the command
     my $first-byte = $data[$Pointer];
+    note "First byte: {sprintf "%02.2x", $first-byte}" if $Debug;
     # Whatever parses $first-byte is responsible for moving $Pointer
     # forward.
 
@@ -477,11 +480,12 @@ And these are the events:
 		$event-code = $first-byte;
 	    } else {
 		# It's a running status mofo -- just use last $event-code value
+note "Running status {sprintf "%02.2x", $event-code}" if $Debug;
 		if $event-code < 0 {
-#		    fail "Uninterpretable use of running status; Aborting track."
-#		    if $Debug;
+		    fail "Uninterpretable use of running status; Aborting track."
+		    if $Debug;
 		    last Event;
-	}
+	        }
 # $event-code is now correct for this event
 		# Let the argument-puller-offer move Pointer.
 	    }
@@ -600,9 +604,12 @@ And these are the events:
 			######################################################################
     } # $first-byte < 0xf0
     when 0xff {	
+        note "First byte is 0xFF" if $Debug;
       ++$Pointer;
       $command = $data[$Pointer++];
+      note "Command is {sprintf "%02.2x", $command}" if $Debug;
       $length = getcompint($data, $Pointer);
+      note "length：$length" if $Debug;
 
 =begin pod
 =item MIDI::Event::Set-sequence-number(I<dtime>, I<sequence-number>)
@@ -721,6 +728,7 @@ And these are the events:
 							       );
 			  }
 			  when 0x0c {
+note "text-event_0c: length $length" if $Debug;
 			    $E = MIDI::Event::Text-event_0c.new(
 								time => $time,
 								text => $data.subbuf($Pointer, $length)
@@ -793,6 +801,7 @@ And these are the events:
 								 ticks         => $data[$Pointer+2],
 								 quarter-notes => $data[$Pointer+3],
 								);
+note "Pointer after time signature is $Pointer" if $Debug;
 			  }
 
 =begin pod
@@ -800,11 +809,14 @@ And these are the events:
 
 =end pod
 			  when 0x59 {
+note "Pointer is $Pointer before reading arguments";
 			    $E = MIDI::Event::Key-signature.new(
 								time        => $time,
-								sharps      => $data.read-uint8($Pointer++),
-								major-minor => $data.read-uint8($Pointer++)
+								sharps      => $data.read-uint8($Pointer),
+								major-minor => $data.read-uint8($Pointer+1)
 							       );
+note $E.raku; 
+note "Pointer after key signature is $Pointer" if $Debug;
 			  }
 
 =begin pod
@@ -1107,7 +1119,7 @@ class MIDI::Event::Note is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Note.new(???)";
+        "MIDI::Event::Note.new(:time($!time), :duration($!duration), :channel($!channel), :note-number($!note-number), :velocity($!velocity))";
     }
 
     method type {
@@ -1294,7 +1306,7 @@ class MIDI::Event::Text-event is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Text-event.new(:time($!time), #text#)";
+        "MIDI::Event::Text-event.new(:time($!time), :text(\"$!text.decode('latin1')\")";
     }
     
     method type {
@@ -1311,7 +1323,7 @@ class MIDI::Event::Copyright is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Copyright.new(:time($!time), :text($!text))";
+        "MIDI::Event::Copyright.new(:time($!time), :text($!text.decode('latin1')))";
     }
     
     method type {
@@ -1328,7 +1340,7 @@ class MIDI::Event::Track-name is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Track-name.new(:time($!time), :text($!text))";
+        "MIDI::Event::Track-name.new(:time($!time), :text($!text.decode('latin1')))";
     }
     
     method type {
@@ -1345,7 +1357,7 @@ class MIDI::Event::Instrument-name is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Instrument-name.new(:time($!time), :text($!text))";
+        "MIDI::Event::Instrument-name.new(:time($!time), :text($!text.decode('latin1'))";
     }
     
     method type {
@@ -1379,7 +1391,7 @@ class MIDI::Event::Marker is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Marker.new(:time($!time), :text($!text))";
+        "MIDI::Event::Marker.new(:time($!time), :text(\"$!text.decode('lartin1')\"))";
     }
     
     method type {
@@ -1396,7 +1408,7 @@ class MIDI::Event::Cue-point is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Cue-point.new(:time($!time), :text($!text))";
+        "MIDI::Event::Cue-point.new(:time($!time), :text(\"$!text.decode('latin1')\"))";
     }
     
     method type {
@@ -1413,7 +1425,7 @@ class MIDI::Event::Text-event_08 is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Text-event_08.new(:time($!time), :text($!text))";
+        "MIDI::Event::Text-event_08.new(:time($!time), :text(\"$!text.decode('latin1')\"))";
     }
     
     method type {
@@ -1430,7 +1442,7 @@ class MIDI::Event::Text-event_09 is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Text-event_09.new(:time($!time), :text($!text))";
+        "MIDI::Event::Text-event_09.new(:time($!time), :text(\"$!text.decode('latin1')\"))";
     }
     
     method type {
@@ -1447,7 +1459,7 @@ class MIDI::Event::Text-event_0a is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Text-event_0a.new(:time($!time), :text($!text))";
+        "MIDI::Event::Text-event_0a.new(:time($!time), :text(\"$!text.decode('latin1')\"))";
     }
     
     method type {
@@ -1464,7 +1476,7 @@ class MIDI::Event::Text-event_0b is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Text-event_0b.new(:time($!time), :text($!text))";
+        "MIDI::Event::Text-event_0b.new(:time($!time), :text(\"$!text.decode('latin1')\"))";
     }
     
     method type {
@@ -1481,7 +1493,7 @@ class MIDI::Event::Text-event_0c is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Text-event_0c.new(:time($!time), :text($!text))";
+        "MIDI::Event::Text-event_0c.new(:time($!time), :text(\"$!text.decode('latin1')\"))";
     }
 
     method type {
@@ -1498,7 +1510,7 @@ class MIDI::Event::Text-event_0d is MIDI::Event {
     }
 
     method raku() {
-        "MIDI::Event::Text-event_0d.new(:time($!time), :text($!text))";
+        "MIDI::Event::Text-event_0d.new(:time($!time), :text(\"$!text.decode('latin1')\"))";
     }
 
     method type {
@@ -1515,7 +1527,7 @@ class MIDI::Event::Text-event_0e is MIDI::Event {
     }
 
     method raku() {
-        "MIDI::Event::Text-event_0e.new(:time($!time), :text($!text))";
+        "MIDI::Event::Text-event_0e.new(:time($!time), :text(\"$!text.decode('latin1')\"))";
     }
 
     method type {
@@ -1532,7 +1544,7 @@ class MIDI::Event::Text-event_0f is MIDI::Event {
     }
 
     method raku() {
-        "MIDI::Event::Text-event_0f.new(:time($!time), :text($!text))";
+        "MIDI::Event::Text-event_0f.new(:time($!time), :text(\"$!text.decode('latin1')\"))";
     }
 
     method type {
@@ -1590,6 +1602,7 @@ class MIDI::Event::Smpte-offset is MIDI::Event {
 
     method encode($use-running-status, $last-status is rw --> Buf) {
         Buf.new(
+            |ber($!time),
             0xff,
 	    0x51,
 	    5,
@@ -1619,6 +1632,7 @@ class MIDI::Event::Time-signature is MIDI::Event {
 
     method encode($use-running-status, $last-status is rw --> Buf) {
         Buf.new(
+            |ber($!time),
             0xff,
 	    0x58,
 	    4,
@@ -1630,7 +1644,7 @@ class MIDI::Event::Time-signature is MIDI::Event {
     }
 
     method raku() {
-        "MIDI::Event::Time-signature.new(:time($!time), :numerator($!numerator), Ldenominator($!denominator), :ticks($!ticks), :quarter-notes($!quarter-notes))";
+        "MIDI::Event::Time-signature.new(:time($!time), :numerator($!numerator), :denominator($!denominator), :ticks($!ticks), :quarter-notes($!quarter-notes))";
     } 
 
     method type {
@@ -1639,12 +1653,13 @@ class MIDI::Event::Time-signature is MIDI::Event {
 }
 
 class MIDI::Event::Key-signature is MIDI::Event {
-    has $.time;
+    has $.time is rw;
     has $.sharps;
     has $.major-minor;
 
     method encode($use-running-status, $last-status is rw --> Buf) {
         Buf.new(
+            |ber($!time),
             0xff,
 	    0x59,
 	    2,
@@ -1668,6 +1683,7 @@ class MIDI::Event::Sequencer-specific is MIDI::Event {
 
     method encode($use-running-status, $last-status is rw --> Buf) {
         Buf.new(
+            |ber($!time),
             0xff,
 	    0x7f,
 	    |ber($!data.bytes),
@@ -1690,6 +1706,7 @@ class MIDI::Event::sysex-f0 is MIDI::Event {
 
     method encode($use-running-status, $last-status is rw --> Buf) {
         Buf.new(
+            |ber($!time),
             0xf0,
 	    |ber($!data.bytes),
 	    $!data
@@ -1711,6 +1728,7 @@ class MIDI::Event::sysex-f7 is MIDI::Event {
 
     method encode($use-running-status, $last-status is rw --> Buf) {
         Buf.new(
+            |ber($!time),
             0xf7,
 	    |ber($!data.bytes),
 	    $!data
@@ -1731,7 +1749,7 @@ class MIDI::Event::Song-position is MIDI::Event {
     has $.beats;
 
     method encode($use-running-status, $last-status is rw --> Buf) {
-        Buf.new(0xf2) ~ self.write-u14-bit($!beats);
+        Buf.new(|ber($!time), 0xf2) ~ self.write-u14-bit($!beats);
     }
 
     method raku() {
@@ -1749,6 +1767,7 @@ class MIDI::Event::Song-select is MIDI::Event {
 
     method encode($use-running-status, $last-status is rw --> Buf) {
         Buf.new(
+            |ber($!time),
             0xf1,
 	    $!song-number
         );
@@ -1767,7 +1786,7 @@ class MIDI::Event::Tune-request is MIDI::Event {
     has $.time is rw;
 
     method encode($use-running-status, $last-status is rw --> Buf) {
-        Buf.new(0xf6);
+        Buf.new(|ber($!time), 0xf6);
     }
 
     method raku() {
@@ -1786,6 +1805,7 @@ class MIDI::Event::Raw is MIDI::Event {
 
     method encode($use-running-status, $last-status is rw --> Buf) {
         Buf.new(
+            |ber($!time),
 	    0xff,
 	    $!command,
 	    |ber($!data.length),

@@ -224,6 +224,10 @@ This takes a score structure, and returns a copy of it. Example usage:
 has @.notes;
 has $.duration = 0;
 
+submethod TWEAK {
+    $!duration = @!notes[*-1].time unless $!duration;
+}
+
 sub copy-structure {
   return &MIDI::Event::copy-structure(@_);
   # hey, an array of events (sorry -- notes) is an array of events
@@ -266,7 +270,7 @@ method events {
     }
   }
 # Now create a sequence $score containing the events in time order
-  my $score = @events.sort({$^a.time <=> $^b.time});
+  my $score = @events.sort({$^a.time});
 
 # Now we turn it into an event structure by fiddling the timing
   $time = 0;
@@ -299,7 +303,7 @@ method sort {
 
   # Except in Raku, where sort is stable!
 
-  .notes.sort({$^a.time <=> $^b.time});
+  @!notes.sort({$^a.time <=> $^b.time});
 }
 ###########################################################################
 

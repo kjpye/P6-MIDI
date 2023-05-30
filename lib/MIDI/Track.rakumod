@@ -262,7 +262,7 @@ sub encode-events($events, *%options) { # encode an array of events, presumably 
     if +@events { # If there are any events...
       my $last = @events[ *-1 ];
       unless $last ~~ (MIDI::Event::End-track) { # ...And there's no end-track already
-        if $last ~~ (MIDI::Event::Text-event) and $last.text.chars == 0 {
+        if $last ~~ (MIDI::Event::Text-event) and +$last.text == 0 {
 	  # 0-length text event at track-end.
 	  if %options<no-eot-magic> {
 	    # Exceptional case: don't mess with track-final
