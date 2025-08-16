@@ -58,11 +58,11 @@ DESCRIPTION
 
 This suite of modules provides routines for reading, composing, modifying, and writing MIDI files.
 
-From FOLDOC (`http://wombat.doc.ic.ac.uk/foldoc/`):
+From FOLDOC (`http://foldoc.org/`):
 
 **MIDI, Musical Instrument Digital Interface**
 
-<multimedia, file format> (MIDI /mi'-dee/, /mee'-dee/) A hardware specification and protocol used to communicate note and effect information between synthesisers, computers, music keyboards, controllers and other electronic music devices. [...]
+<music, hardware, protocol, file format> (MIDI /mi'-dee/, /mee'-dee/) A hardware specification and protocol used to communicate note and effect information between synthesisers, computers, music keyboards, controllers and other electronic music devices. [...]
 
 The basic unit of information is a "note on/off" event which includes a note number (pitch) and key velocity (loudness). There are many other message types for events such as pitch bend, patch changes and synthesizer-specific events for loading new patches etc.
 
@@ -79,6 +79,8 @@ The order you want to read them in will depend on what you want to do with this 
 
 But if you aim to compose music with this suite, read this pod, then [MIDI::Score](MIDI::Score) and [MIDI::Simple](MIDI::Simple), and then skim the rest.
 
+Note that [MIDI::Simple](MIDI::Simple) is not currently part of this distribution. If and when it is released it is likely to look significantly different from the Perl version.
+
 INTRODUCTION
 ============
 
@@ -91,21 +93,23 @@ While there are some options that deal with the guts of MIDI encoding, you can (
 GOODIES
 =======
 
-The bare module MIDI.pm doesn't *do* much more than `use` the necessary component submodules (i.e., all except MIDI::Simple). But it does provide some hashes you might find useful:
+The bare module MIDI.pm doesn't *do* much more than `use` the necessary component submodules (i.e., all except MIDI::Simple).
+
+[MIDI::Utilities](MIDI::Utilities) contains a few utilities which you might find useful:
 
 **Note numbers <--> a representation of them**
 
-  * `%MIDI::note2number` and `%MIDI::number2note`
+  * `%note2number` and `%number2note`
 
-`%MIDI::number2note` correponds MIDI note numbers to a more comprehensible representation (e.g., 68 to 'Gs4', for G-sharp, octave 4); `%MIDI::note2number` is the reverse. Have a look at the source to see the contents of the hash.
+`%number2note` correponds MIDI note numbers to a more comprehensible representation (e.g., 68 to 'Gs4', for G-sharp, octave 4); `%note2number` is the reverse. Have a look at the source to see the contents of the hash.
 
-  * `%MIDI::patch2number` and `%MIDI::number2patch`
+  * `%patch2number` and `%number2patch`
 
-`%MIDI::number2patch` correponds General MIDI patch numbers (0 to 127) to English names (e.g., 79 to 'Ocarina'); `%MIDI::patch2number` is the reverse. Have a look at the source to see the contents of the hash.
+`%number2patch` relates General MIDI patch numbers (0 to 127) to English names (e.g., 79 to 'Ocarina'); `%patch2number` is the reverse. Have a look at the source to see the contents of the hash.
 
   * `%MIDI::notenum2percussion` and `%MIDI::percussion2notenum`
 
-`%MIDI::notenum2percussion` correponds General MIDI Percussion Keys to English names (e.g., 56 to 'Cowbell') -- but note that only numbers 35 to 81 (inclusive) are defined; `%MIDI::percussion2notenum` is the reverse. Have a look at the source to see the contents of the hash.
+`%notenum2percussion` correponds General MIDI Percussion Keys to English names (e.g., 56 to 'Cowbell') -- but note that only numbers 35 to 81 (inclusive) are defined; `%percussion2notenum` is the reverse. Have a look at the source to see the contents of the hash.
 
 BRIEF GLOSSARY
 ==============

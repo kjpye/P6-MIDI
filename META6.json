@@ -1,25 +1,30 @@
 {
-  "authors" : [
+  "authors": [
     "Kevin Pye"
   ],
-  "build-depends" : [ ],
-  "depends" : [ ],
-  "description" : "read, compose, modify, and write MIDI files",
-  "license" : "Artistic-2.0",
-  "name" : "MIDI",
-  "perl" : "6.d",
-  "provides" : {
-    "MIDI" : "lib/MIDI.rakumod",
-    "MIDI::Event" : "lib/MIDI/Event.rakumod",
-    "MIDI::Opus" : "lib/MIDI/Opus.rakumod",
-    "MIDI::Score" : "lib/MIDI/Score.rakumod",
-    "MIDI::Simple" : "lib/MIDI/Simple.rakumod",
-    "MIDI::Track" : "lib/MIDI/Track.rakumod",
-    "MIDI::Utility" : "lib/MIDI/Utility.rakumod"
+  "build-depends": [
+  ],
+  "depends": [
+  ],
+  "description": "read, compose, modify, and write MIDI files",
+  "license": "Artistic-2.0",
+  "name": "MIDI",
+  "perl": "6.d",
+  "provides": {
+    "MIDI": "lib/MIDI.rakumod",
+    "MIDI::Event": "lib/MIDI/Event.rakumod",
+    "MIDI::Opus": "lib/MIDI/Opus.rakumod",
+    "MIDI::Score": "lib/MIDI/Score.rakumod",
+    "MIDI::Simple": "lib/MIDI/Simple.rakumod",
+    "MIDI::Track": "lib/MIDI/Track.rakumod",
+    "MIDI::Utility": "lib/MIDI/Utility.rakumod"
   },
-  "resources" : [ ],
-  "source-url" : "https://github.com/kjpye/P6-MIDI",
-  "tags" : [ ],
-  "test-depends" : [ ],
-  "version" : "0.99.0"
+  "resources": [
+  ],
+  "source-url": "https://github.com/kjpye/P6-MIDI.git",
+  "tags": [
+  ],
+  "test-depends": [
+  ],
+  "version": "0.99.0"
 }
