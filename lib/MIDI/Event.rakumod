@@ -1126,6 +1126,7 @@ class MIDI::Event::Note-off is MIDI::Event {
 
   method !encode1($use-running-status, $last-status is rw --> Buf) {
     my $status = 0x80 +| $!channel +& 0x0f;
+    $status +|= 0x10 if $!velocity == 0; # Use note-on command
     my $use-old-status = $use-running-status & ($status == $last-status);
     $last-status = $status;
     $use-old-status
