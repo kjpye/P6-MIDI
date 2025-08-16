@@ -93,7 +93,7 @@ ok @e[2] ~~ (MIDI::Event::Note-on);
 is @e[2].time,         90;
 is @e[2].channel,       9;
 is @e[2].note-number,  56;
-is @e[2].velocity,    127;
+is @e[2].velocity,    0xffff; # scaled from MIDI 1 value of 127
 
 
   say "# Fourth event: [@e[3]]";
@@ -101,7 +101,7 @@ ok @e[3] ~~ (MIDI::Event::Note-off);
 is @e[3].time,         6;
 is @e[3].channel,      9;
 is @e[3].note-number, 56;
-is @e[3].velocity,   127;
+is @e[3].velocity,   0xffff; # scaled from MIDI 1 value of 127
 
   $t.type = Buf.new("Muck".comb>>.ord);
 is-deeply $t.type, Buf[uint8].new('Muck'.comb>>.ord);

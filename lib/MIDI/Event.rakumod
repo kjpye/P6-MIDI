@@ -514,7 +514,7 @@ note "Running status {sprintf "%02.2x", $event-code}" if $Debug;
 		      time          => $time,
 		      channel       => $channel,
 		      note-number   => $parameter[0],
-		      velocity      => $parameter[1],
+		      velocity      => scale7to16 $parameter[1],
 		  );
 	      }
 	      
@@ -524,15 +524,24 @@ note "Running status {sprintf "%02.2x", $event-code}" if $Debug;
 =end pod
               when 0x90 {
                   next if $exclude<note-on>;
-		  $E = MIDI::Event::Note-on.new(
-		      time          => $time,
-		      channel       => $channel,
-		      note-number   => $parameter[0],
-		      velocity      => $parameter[1],
-		  );
-              }
-
-=begin pod
+		  $E = $parameter[1] != 0
+                       ??
+                       MIDI::Event::Note-on.new(
+                           time          => $time,
+                           channel       => $channel,
+                           note-number   => $parameter[0],
+                           velocity      => scale7to16 $parameter[1],
+                      )
+                      !!
+                      MIDI::Event::Note-off.new(
+                          time          => $time,
+                          channel       => $channel,
+                          note-number   => $parameter[0],
+                          velocity      => 0,
+                      )                      
+                  }
+                  
+=begin pod        
 =item MIDI::Event::Key-after-touch(I<dtime>, I<channel>, I<note>, I<velocity>)
 
 =end pod
@@ -1076,14 +1085,46 @@ method encode-text-event($delta-time, $cmd, $text --> Buf) {
 1. type   -- which provides a printable version of the event type.
 
 =end pod
+
+ sub scale7to16($sval) {
+     my $value = ($sval +& 0x7f) +< 9;
+     if $value ≥ 0x8000 {
+         my $ext = $sval +& 0x3f;
+         $value +|= $ext +< 3;
+         $value +|= $ext +> 3;
+     }
+     $value;
+ }
+ 
+ sub mkdeltatime2($time is copy --> Buf) {
+     my $dt = Buf.new();
+     while $time ≥ 2 +< 20 {
+         $dt ~= Buf.new(
+             0,
+             0x4f,
+             0xff,
+             0xff
+         );
+         $time -= 0xffff;
+     }
+     $dt ~ Buf.new(
+         0,
+         0x40 +| (($time +> 16) +& 0x0f),
+         ($time +> 8) +& 0xff,
+         $time +& 0xff
+     );
+ }
  
 class MIDI::Event::Note-off is MIDI::Event {
-  has $.time is rw;
-  has $.channel;
-  has $.note-number;
-  has $.velocity;
+  has $.time is rw;         # explicit in MIDI 1; synthesised in MIDI 2
+  has $.group = 0;          # 4 bits, MIDI 2 only
+  has $.channel;            # 4 bits
+  has $.note-number;        # 7 bits
+  has $.velocity;           # 16 bits (upscaled from 7 bits in MIDI 1)
+  has $.attribute-type = 0; # 8 bits
+  has $attribute = 0;       # 16 bits
 
-  method encode($use-running-status, $last-status is rw --> Buf) {
+  method !encode1($use-running-status, $last-status is rw --> Buf) {
     my $status = 0x80 +| $!channel +& 0x0f;
     my $use-old-status = $use-running-status & ($status == $last-status);
     $last-status = $status;
@@ -1097,8 +1138,30 @@ class MIDI::Event::Note-off is MIDI::Event {
     ;
   }
 
+  method !encode2(--> Buf) {
+      my $buf = mkdeltatime2($!time);
+      $buf ~ Buf.new(
+          0x40 +| ($!group +& 0x0f),
+          0x80 +| ($!channel +& 0x0f),
+          $!note-number +& 0x7f,
+          $!attribute-type +& 0xff,
+          ($!velocity +> 8) +& 0xff,
+          $!velocity +& 0xff,
+          ($!attribute +> 8) +& 0xff,
+          $!attribute +& 0xff,
+      );
+  }
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+      if True {
+          self!encode1($use-running-status, $last-status);
+      } else {
+          self!encode2()
+      }
+  }
+
   method raku() {
-      "MIDI::Event::Note-off.new(:time($!time), :channel($!channel), :note-number($!note-number), :velocity($!velocity))";
+      "MIDI::Event::Note-off.new(:time($!time), :group($!group), :channel($!channel), :note-number($!note-number), :velocity($!velocity), :attribute-type($!attribute-type) :attribute($!attribute))";
   }
 
   method type {
@@ -1109,9 +1172,12 @@ class MIDI::Event::Note-off is MIDI::Event {
 class MIDI::Event::Note is MIDI::Event {
     has $.time is rw;
     has $.duration is rw;
+    has $.group;
     has $.channel;
     has $.note-number;
     has $.velocity;
+    has $.attribute-type;
+    has $.attribute;
 
     # no need for an encode method -- it's not a valid midi message, but we'll provide one for consistency
     method encode($use-running-status, $last-status is rw --> Buf) {
@@ -1119,7 +1185,7 @@ class MIDI::Event::Note is MIDI::Event {
     }
     
     method raku() {
-        "MIDI::Event::Note.new(:time($!time), :duration($!duration), :channel($!channel), :note-number($!note-number), :velocity($!velocity))";
+        "MIDI::Event::Note.new(:time($!time), :duration($!duration), :group($!group), :channel($!channel), :note-number($!note-number), :velocity($!velocity), :attribute-type($!attribute-type), :attribute($!attribute))";
     }
 
     method type {
@@ -1129,11 +1195,14 @@ class MIDI::Event::Note is MIDI::Event {
 
 class MIDI::Event::Note-on is MIDI::Event {
     has $.time is rw;
+    has $.group = 0;
     has $.channel;
     has $.note-number;
     has $.velocity;
+    has $.attribute-type = 0;
+    has $.attribute = 0;
     
-    method encode($use-running-status, $last-status is rw --> Buf) {
+    method !encode1($use-running-status, $last-status is rw --> Buf) {
         my $status = 0x90 +| $!channel +& 0x0f;
         my $use-old-status = $use-running-status & ($status == $last-status);
         $last-status = $status;
@@ -1145,6 +1214,28 @@ class MIDI::Event::Note-on is MIDI::Event {
         ;
     }
     
+  method !encode2(--> Buf) {
+      my $buf = mkdeltatime2($!time);
+      $buf ~ Buf.new(
+          0x40 +| ($!group +& 0x0f),
+          0x90 +| ($!channel +& 0x0f),
+          $!note-number +& 0x7f,
+          $!attribute-type +& 0xff,
+          ($!velocity +> 8) +& 0xff,
+          $!velocity +& 0xff,
+          ($!attribute +> 8) +& 0xff,
+          $!attribute +& 0xff,
+      );
+  }
+
+  method encode($use-running-status, $last-status is rw --> Buf) {
+      if True {
+          self!encode1($use-running-status, $last-status);
+      } else {
+          self!encode2()
+      }
+  }
+
     method raku() {
         "MIDI::Event::Note-on.new(:time($!time), :channel($!channel), :note-number($!note-number), :velocity($!velocity))";
     }

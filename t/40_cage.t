@@ -49,7 +49,7 @@ is $it.patch-number, 0;
 
 
 $it = @e[1];  print "# EVent 1: [@$it]\n";
-ok $it ~~ (MIDI::Event::Note-on);
+ok $it ~~ (MIDI::Event::Note-off); # MIDI 1 note-on with velocity translated to MIDI 2 note-off
 is $it.time,         0;
 is $it.channel,      0;
 is $it.note-number, 20;

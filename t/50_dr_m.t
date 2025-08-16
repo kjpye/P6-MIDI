@@ -74,7 +74,7 @@ ok $it ~~ (MIDI::Event::Note-on);
 is $it.time,          0;
 is $it.channel,       0;
 is $it.note-number,  69;
-is $it.velocity,    100;
+is $it.velocity,    51492; # scaled from MIDI 1 value of 100
 
 $it = @e[6];  print "# Event 6: [@$it]\n";
 
@@ -90,7 +90,7 @@ ok $it ~~ (MIDI::Event::Note-on);
 is $it.time,          0;
 is $it.channel,       0;
 is $it.note-number,  68;
-is $it.velocity,    100;
+is $it.velocity,    51492; # scaled from MIDI 1 value of 100
 
 
 print "# Okay, all done!\n";
