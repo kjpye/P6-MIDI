@@ -551,7 +551,7 @@ note "Running status {sprintf "%02.2x", $event-code}" if $Debug;
 		      time        => $time,
 		      channel     => $channel,
 		      note-number => $parameter[0],
-		      aftertouch  => $parameter[1],
+		      aftertouch  => scale7to32($parameter[1]),
 		  );
               }
 
@@ -1086,6 +1086,19 @@ method encode-text-event($delta-time, $cmd, $text --> Buf) {
 
 =end pod
 
+ sub scale7to32($sval) {
+     my $value = ($sval +& 0x7f) +< 25;
+     if $value ≥ 0x80000000 {
+         my $ext = $sval +& 0x3f;
+         $value +|= $ext +< 19;
+         $value +|= $ext +< 13;
+         $value +|= $ext +< 7;
+         $value +|= $ext +< 1;
+         $value +|= $ext +> 6;
+     }
+     $value;
+ }
+ 
  sub scale7to16($sval) {
      my $value = ($sval +& 0x7f) +< 9;
      if $value ≥ 0x8000 {
@@ -1246,13 +1259,16 @@ class MIDI::Event::Note-on is MIDI::Event {
     }
 }
 
+# Key-after-touch (Midi 1) is also known as Poly-pressure
+
 class MIDI::Event::Key-after-touch is MIDI::Event {
     has $.time is rw;
+    has $.group = 0;
     has $.channel;
     has $.note-number;
     has $.aftertouch;
     
-    method encode($use-running-status, $last-status is rw --> Buf) {
+    method !encode1($use-running-status, $last-status is rw --> Buf) {
         my $status = 0xa0 +| $!channel +& 0x0f;
         my $use-old-status = $use-running-status & ($status == $last-status);
         $last-status = $status;
@@ -1264,6 +1280,28 @@ class MIDI::Event::Key-after-touch is MIDI::Event {
         ;
     }
     
+    method !encode2() {
+        my $buf = mkdeltatime2($!time);
+        $buf ~ Buf.new(
+            0x40 +| ($!group +& 0x0f),
+            0x90 +| ($!channel +& 0x0f),
+            $!note-number +& 0x7f,
+            9,
+            ($!aftertouch +> 24) +& 0xff,
+            ($!aftertouch +> 16) +& 0xff,
+            ($!aftertouch +>  8) +& 0xff,
+            $!aftertouch +& 0xff,
+      );
+    }
+    
+    method encode($use-running-status, $last-status is rw --> Buf) {
+        if True {
+            self!encode1($use-running-status, $last-status);
+        } else {
+            self!encode2()
+        }
+    }
+
     method raku() {
         "MIDI::Event::Key-after-touch.new(:time($!time), :channel($!channel), :note-number($!note-number), :aftertouch($!aftertouch))";
     }
