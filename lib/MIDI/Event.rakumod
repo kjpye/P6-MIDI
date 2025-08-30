@@ -1284,7 +1284,7 @@ class MIDI::Event::Key-after-touch is MIDI::Event {
         my $buf = mkdeltatime2($!time);
         $buf ~ Buf.new(
             0x40 +| ($!group +& 0x0f),
-            0x90 +| ($!channel +& 0x0f),
+            0xa0 +| ($!channel +& 0x0f),
             $!note-number +& 0x7f,
             9,
             ($!aftertouch +> 24) +& 0xff,
@@ -1313,11 +1313,12 @@ class MIDI::Event::Key-after-touch is MIDI::Event {
 
 class MIDI::Event::Controller-change is MIDI::Event {
     has $.time is rw;
+    has $.group = 0;
     has $.channel;
     has $.controller;
     has $.value;
     
-    method encode($use-running-status, $last-status is rw --> Buf) {
+    method !encode1($use-running-status, $last-status is rw --> Buf) {
         my $status = 0xb0 +| $!channel +& 0x0f;
         my $use-old-status = $use-running-status & ($status == $last-status);
         $last-status = $status;
@@ -1329,6 +1330,28 @@ class MIDI::Event::Controller-change is MIDI::Event {
         ;
     }
     
+    method !encode2() {
+        my $buf = mkdeltatime2($!time);
+        $buf ~ Buf.new(
+            0x40 +| ($!group +& 0x0f),
+            0xb0 +| ($!channel +& 0x0f),
+            $!controller +& 0x7f,
+            9,
+            ($!value +> 24) +& 0xff,
+            ($!value +> 16) +& 0xff,
+            ($!value +>  8) +& 0xff,
+            $!value +& 0xff,
+      );
+    }
+    
+    method encode($use-running-status, $last-status is rw --> Buf) {
+        if True {
+            self!encode1($use-running-status, $last-status);
+        } else {
+            self!encode2()
+        }
+    }
+
     method raku() {
         "MIDI::Event::Controller-change.new(:time($!time), :channel($!channel), :controller($!controller), :value($!value))";
     }
