@@ -15,7 +15,7 @@ my $out = 'temp30.mid';
 
  text-event 'so, by Thy power/ no foot shall slide';
  set-tempo 500000;  # 1 qn => .5 seconds (500,000 microseconds)
- patch-change 1, 8;  # Patch 8 = Celesta
+ program-change 1, 8;  # Patch 8 = Celesta
 
  noop c1, f, o5;  # Setup
  # Now play
@@ -74,7 +74,7 @@ ok $it.tempo, 500000;
 
 $it = @e[2];
 # TODO ok scalar( @{ $it = $e[2] } ), 4 or die;  print "# Third event: [@$it]\n";
-ok $it ~~ (MIDI::Event::Patch-change);
+ok $it ~~ (MIDI::Event::Program-change);
 ok $it.time,         0;
 ok $it.channel,      1;
 ok $it.patch-number, 8;

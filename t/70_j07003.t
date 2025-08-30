@@ -38,7 +38,7 @@ ok $it ~~ (MIDI::Event::Set-tempo);
 # ok scalar( @$it ), 3 or die;  
 
 $it = @e[1];  print "# EVent 1: [@$it]\n";
-ok $it ~~ (MIDI::Event::Patch-change);
+ok $it ~~ (MIDI::Event::Program-change);
 #ok scalar( @$it ), 4 or die;  
 
 $it = @e[2];  print "# Event 2: [@$it]\n";

@@ -61,7 +61,7 @@ is $it.tempo, 400000;
 
 
 $it = @e[4];  print "# Event 4: [@$it]\n";
-ok $it ~~ (MIDI::Event::Patch-change);
+ok $it ~~ (MIDI::Event::Program-change);
 is $it.time,         0;
 is $it.channel,      0;
 is $it.patch-number, 1;

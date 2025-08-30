@@ -186,7 +186,7 @@ And these are the events:
 
   * MIDI::Event::Controller_change(*dtime*, *channel*, *controller(0-127)*, *value(0-127)*)
 
-  * MIDI::Event::Patch-change(*dtime*, *channel*, *patch*)
+  * MIDI::Event::Program-change(*dtime*, *channel*, *patch*)
 
   * MIDI::Event::Channel-after-touch(*dtime*, *channel*, *velocity*)
 

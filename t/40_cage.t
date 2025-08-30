@@ -42,7 +42,7 @@ is-deeply $t.type, Buf[uint8].new('MTrk'.comb>>.ord);
 my @e = $t.events;
 my $it;
 $it = @e[0];  print "# Event 0: [@$it]\n";
-ok $it ~~ (MIDI::Event::Patch-change);
+ok $it ~~ (MIDI::Event::Program-change);
 is $it.time,         0;
 is $it.channel,      0;
 is $it.patch-number, 0;

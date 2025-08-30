@@ -41,7 +41,7 @@ class MIDI::Event::Note                 { ... }
 class MIDI::Event::Note-on              { ... }
 class MIDI::Event::Key-after-touch      { ... }
 class MIDI::Event::Controller-change    { ... }
-class MIDI::Event::Patch-change         { ... }
+class MIDI::Event::Program-change       { ... }
 class MIDI::Event::Channel-after-touch  { ... }
 class MIDI::Event::Pitch-wheel-change   { ... }
 class MIDI::Event::Set-sequencer-number { ... }
@@ -147,7 +147,7 @@ our $MIDI-events = Set.new: <
                              note-on                    
                              key-after-touch
                              controller-change
-                             patch-change
+                             program-change
                              channel-after-touch
                              pitch-wheel-change
                              set-sequence-number
@@ -569,12 +569,12 @@ note "Running status {sprintf "%02.2x", $event-code}" if $Debug;
 		  );
               }
 =begin pod
-=item MIDI::Event::Patch-change(I<dtime>, I<channel>, I<patch>)
+=item MIDI::Event::Program-change(I<dtime>, I<channel>, I<patch>)
 
 =end pod
               when 0xC0 {
-                  next if $exclude<patch-change>;
-		  $E = MIDI::Event::Patch-change.new(
+                  next if $exclude<program-change>;
+		  $E = MIDI::Event::Program-change.new(
 		      time         => $time,
 		      channel      => $channel,
 		      patch-number => $parameter[0],
@@ -1361,7 +1361,7 @@ class MIDI::Event::Controller-change is MIDI::Event {
   }
 }
 
-class MIDI::Event::Patch-change is MIDI::Event {
+class MIDI::Event::Program-change is MIDI::Event {
   has $.time is rw;
   has $.channel;
   has $.patch-number;
@@ -1379,11 +1379,11 @@ class MIDI::Event::Patch-change is MIDI::Event {
   }
 
   method raku() {
-      "MIDI::Event::Patch-change.new(:time($!time), :channel($!channel), :patch-number($!patch-number))";
+      "MIDI::Event::Program-change.new(:time($!time), :channel($!channel), :patch-number($!patch-number))";
   }
 
   method type {
-      'patch-change';
+      'program-change';
   }
 }
 

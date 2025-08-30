@@ -81,7 +81,7 @@ MIDI::Simple - procedural/OOP interface for MIDI composition
  text-event 'Lord through this hour/ be Thou our guide';
  text-event 'so, by Thy power/ no foot shall slide';
  set-tempo 500000;  # 1 qn => .5 seconds (500,000 microseconds)
- patch-change 1, 8;  # Patch 8 = Celesta
+ program-change 1, 8;  # Patch 8 = Celesta
 
  noop c1, f, o5;  # Setup
  # Now play
