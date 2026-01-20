@@ -2,6 +2,8 @@ use v6;
 
 my $Debug = 0;
 
+my $use-midi1 = True;
+
 use MIDI::Utility;
 
 sub ber($value is copy){
@@ -1167,7 +1169,7 @@ class MIDI::Event::Note-off is MIDI::Event {
   }
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-      if True {
+      if $use-midi1 {
           self!encode1($use-running-status, $last-status);
       } else {
           self!encode2()
@@ -1243,7 +1245,7 @@ class MIDI::Event::Note-on is MIDI::Event {
   }
 
   method encode($use-running-status, $last-status is rw --> Buf) {
-      if True {
+      if $use-midi1 {
           self!encode1($use-running-status, $last-status);
       } else {
           self!encode2()
@@ -1295,7 +1297,7 @@ class MIDI::Event::Key-after-touch is MIDI::Event {
     }
     
     method encode($use-running-status, $last-status is rw --> Buf) {
-        if True {
+        if $use-midi1 {
             self!encode1($use-running-status, $last-status);
         } else {
             self!encode2()
@@ -1345,7 +1347,7 @@ class MIDI::Event::Controller-change is MIDI::Event {
     }
     
     method encode($use-running-status, $last-status is rw --> Buf) {
-        if True {
+        if $use-midi1 {
             self!encode1($use-running-status, $last-status);
         } else {
             self!encode2()
