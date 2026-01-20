@@ -322,10 +322,6 @@ instead.  But it's here if you happen to need it.
 
 =end pod
 
-method raku {
-  print( "        [", dump-quote(self), "\n" );
-}
-
 # This isn't a method on an object of type Mime::Event. Possibly at the track level
 #method copy-structure {
 #  # Takes an event structure
@@ -333,6 +329,10 @@ method raku {
 #
 # return [  map( [@$_], @$events_r )  ];
 #}
+
+method raku {
+  print( "        [", dump-quote(self), "\n" );
+}
 
 sub read-u14-bit($in) {
   # Decodes to a value 0 to 16383, as is used for some event encoding
@@ -627,9 +627,9 @@ note "Running status {sprintf "%02.2x", $event-code}" if $Debug;
       given $command {
 			  when 0x00 {
 			    $E = MIDI::Event::Set-sequencer-number.new(
-								       time            => $time,
-								       sequence-number => $data.readuint16($Pointer, BigEndian),
-								      );
+				time            => $time,
+				sequence-number => $data.readuint16($Pointer, BigEndian),
+			    );
 			    $Pointer += 2;
 			  }
 
@@ -669,91 +669,91 @@ note "Running status {sprintf "%02.2x", $event-code}" if $Debug;
 =end pod
 			  when 0x01 {
 			    $E =  MIDI::Event::Text-event.new(
-							      time => $time,
-							      text => $data.subbuf($Pointer, $length)
-							     );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  } 
 			  when 0x02 {
 			    $E = MIDI::Event::Copyright.new(
-							    time => $time,
-							    text => $data.subbuf($Pointer, $length)
-							   );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 			  when 0x03 {
 			    $E = MIDI::Event::Track-name.new(
-							     time => $time,
-							     text => $data.subbuf($Pointer, $length)
-							    );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 			  when 0x04 {
 			    $E = MIDI::Event::Instrument-name.new(
-								  time => $time,
-								  text => $data.subbuf($Pointer, $length)
-								 );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 			  when 0x05 {
 			    $E = MIDI::Event::Lyric.new(
-							time => $time,
-							text => $data.subbuf($Pointer, $length)
-						       );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 			  when 0x06 {
 			    $E = MIDI.Event::Marker.new(
-							time => $time,
-							text => $data.subbuf($Pointer, $length)
-						       );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 			  when 0x07 {
 			    $E = MIDI::Event::Cue-point.new(
-							    time => $time,
-							    text => $data.subbuf($Pointer, $length)
-							   );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 
 			  # Reserved but apparently unassigned text events --------------------
 
 			  when 0x08 {
 			    $E = MIDI::Event::Text-event_08.new(
-								time => $time,
-								text => $data.subbuf($Pointer, $length)
-							       );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 			  when 0x09 {
 			    $E = MIDI::Event::Text-event_09.new(
-								time => $time,
-								text => $data.subbuf($Pointer, $length)
-							       );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 			  when 0x0a {
 			    $E = MIDI::Event::Text-event_0a.new(
-								time => $time,
-								text => $data.subbuf($Pointer, $length)
-							       );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 			  when 0x0b {
 			    $E = MIDI::Event::Text-event_0b.new(
-								time => $time,
-								text => $data.subbuf($Pointer, $length)
-							       );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 			  when 0x0c {
 note "text-event_0c: length $length" if $Debug;
 			    $E = MIDI::Event::Text-event_0c.new(
-								time => $time,
-								text => $data.subbuf($Pointer, $length)
-							       );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 			  when 0x0d {
 			    $E = MIDI::Event::Text-event_0d.new(
-								time => $time,
-								text => $data.subbuf($Pointer, $length)
-							       );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 			  when 0x0e {
 			    $E = MIDI::Event::Text-event_0e.new(
-								time => $time,
-								text => $data.subbuf($Pointer, $length)
-							       );
+				time => $time,
+				text => $data.subbuf($Pointer, $length)
+			    );
 			  }
 
 			  # Now the sticky events ---------------------------------------------
@@ -764,8 +764,8 @@ note "text-event_0c: length $length" if $Debug;
 =end pod
 			  when 0x2F {
 			    $E = MIDI::Event::End-track.new(
-							    time => $time,
-							   );
+				time => $time,
+			    );
 			    # The code for handling this oddly comes LATER, in the
 			    #  event registrar.
 			  }
@@ -777,9 +777,9 @@ note "text-event_0c: length $length" if $Debug;
 
 			  when 0x51 {
 			    $E = MIDI::Event::Set-tempo.new(
-							    time => $time,
-							    tempo => getint24($data, $Pointer),
-							   );
+				time => $time,
+				tempo => getint24($data, $Pointer),
+			    );
 			  }
 
 =begin pod
@@ -789,13 +789,13 @@ note "text-event_0c: length $length" if $Debug;
 
 			  when 0x54 {
 			    $E = MIDI::Event::Smpte-offset.new(
-							       time    => $time,
-							       hours   => $data[$Pointer],
-							       minutes => $data[$Pointer+1],
-							       seconds => $data[$Pointer+2],
-							       fr      => $data[$Pointer+3],
-							       ff      => $data[$Pointer+4],
-							      );
+				time    => $time,
+				hours   => $data[$Pointer],
+				minutes => $data[$Pointer+1],
+				seconds => $data[$Pointer+2],
+				fr      => $data[$Pointer+3],
+				ff      => $data[$Pointer+4],
+			    );
 			  }
 
 =begin pod
@@ -804,12 +804,12 @@ note "text-event_0c: length $length" if $Debug;
 =end pod
 			  when 0x58 {
 			    $E = MIDI::Event::Time-signature.new(
-								 time          => $time,
-								 numerator     => $data[$Pointer],
-								 denominator   => $data[$Pointer+1],
-								 ticks         => $data[$Pointer+2],
-								 quarter-notes => $data[$Pointer+3],
-								);
+				time          => $time,
+				numerator     => $data[$Pointer],
+				denominator   => $data[$Pointer+1],
+				ticks         => $data[$Pointer+2],
+				quarter-notes => $data[$Pointer+3],
+			    );
 note "Pointer after time signature is $Pointer" if $Debug;
 			  }
 
@@ -820,10 +820,10 @@ note "Pointer after time signature is $Pointer" if $Debug;
 			  when 0x59 {
 note "Pointer is $Pointer before reading arguments";
 			    $E = MIDI::Event::Key-signature.new(
-								time        => $time,
-								sharps      => $data.read-uint8($Pointer),
-								major-minor => $data.read-uint8($Pointer+1)
-							       );
+				time        => $time,
+				sharps      => $data.read-uint8($Pointer),
+				major-minor => $data.read-uint8($Pointer+1)
+			    );
 note $E.raku; 
 note "Pointer after key signature is $Pointer" if $Debug;
 			  }
@@ -834,9 +834,9 @@ note "Pointer after key signature is $Pointer" if $Debug;
 =end pod
 			  when 0x7F {
 			    $E = MIDI::Event::Sequencer-specific.new(
-								     time => $time,
-								     data => $data.subbuf($Pointer, $length)
-								    );
+				time => $time,
+				data => $data.subbuf($Pointer, $length)
+			    );
 			  }
 
 =begin pod
@@ -846,10 +846,10 @@ note "Pointer after key signature is $Pointer" if $Debug;
 			  default {
 note "Unhandled command $_";
 			    $E = MIDI::Event::Raw.new(
-						      time    => $time,
-						      command => $command,
-						      data    => $data.subbuf($Pointer, $length)
-						     );
+				time    => $time,
+				command => $command,
+				data    => $data.subbuf($Pointer, $length)
+			    );
 			    # It's uninterpretable; record it as raw_data.
 			  } # End of the meta-event ifcase.
 			 }
@@ -883,18 +883,18 @@ note "Unhandled command $_";
 	      given $first-byte {
 		when 0xf0 {
 		    $E = MIDI::Event::Sysex-f0.new(
-                                                   time    => $time,
-			                           command => $command,
-			                           data    => $data.subbuf($Pointer, $length),
-		                                  );
+                        time    => $time,
+			command => $command,
+			data    => $data.subbuf($Pointer, $length),
+		    );
                     $Pointer += $length; #  Now move past the data
 		}
 		when 0xf7 {
 		    $E = MIDI::Event::Sysex-f7.new(
-                                                   time    => $time,
-			                           command => $command,
-			                           data    => $data.subbuf($Pointer, $length),
-		                                  );
+                        time    => $time,
+			command => $command,
+			data    => $data.subbuf($Pointer, $length),
+		    );
 		    $Pointer += $length; #  Now move past the data
 		}
                 
@@ -925,9 +925,9 @@ note "Unhandled command $_";
 		#  <song position msg> ::=     F2 <data pair>
 		when 0xf2 {
 		  $E = MIDI::Event::Song-position.new(
-						      time  => $time,
-						      beats => &read-u14-bit($data.subbuf($Pointer+1, 2) )
-						     );
+		      time  => $time,
+		      beats => &read-u14-bit($data.subbuf($Pointer+1, 2) )
+		  );
 		  $Pointer += 3; # itself, and 2 data bytes
                   @events.push: $E;
 		}
@@ -939,9 +939,9 @@ note "Unhandled command $_";
 		#  <song select msg> ::=       F3 <data singlet>
 		when 0xf3 {
 		  $E = MIDI::Event::Song-select.new(
-						    time        => $time,
-						    song-number => $data[$Pointer+1],
-						   );
+		      time        => $time,
+		      song-number => $data[$Pointer+1],
+		  );
 		  $Pointer += 2; # itself, and 1 data byte
 
 		  ######################################################################
@@ -955,8 +955,8 @@ note "Unhandled command $_";
 		#  <tune request> ::=          F6
 		when 0xF6 {    # It's a Tune Request! ################
 		  $E = MIDI::Event::Tune-request.new(
-						     time => $time
-						    );
+		      time => $time
+		  );
 		  # DTime
 		  # What the Sam Scratch would a tune request be doing in a MIDI /file/?
 		  ++$Pointer;	# itself
@@ -991,10 +991,10 @@ note "Unhandled command $_";
 # But the encoder for 'raw-data' accepts any length of it.
 		default {
 		  $E = MIDI::Event::Raw.new(
-					    command => $first-byte,
-					    time    => $time,
-					    data    => $data.subbuf($Pointer,1)
-					   );
+		      command => $first-byte,
+		      time    => $time,
+		      data    => $data.subbuf($Pointer,1)
+		  );
 		  # DTime and the Data (in this case, the one Event-byte)
 		  ++$Pointer;	# itself
                   @events.push: $E;
@@ -1027,24 +1027,24 @@ note "Unhandled command $_";
 		    #  for the non-zero delta-time.
 		    
 		    if ($E ~~ (MIDI::Event::Text-event) and $exclude<text-event>)
-		      or ($E ~~ (MIDI::Event::End-track) and $exclude<end-track>) {
-                      if $Debug {
-                        print " Excluding:\n";
-                        dd($E);
-		      }
+		    or ($E ~~ (MIDI::Event::End-track) and $exclude<end-track>) {
+                        if $Debug {
+                            print " Excluding:\n";
+                            dd($E);
+		        }
                     } else {
-                      if $Debug {
-			  print " Processing:\n";
-			  dd($E);
-		      }
-		      if $E {
-			  if $exclusive-event-callback {
-			      $exclusive-event-callback( $E );
-			  } else {
-			      $event-callback( $E ) if $event-callback;
-			      @events[*-1] = $E;
-			  }
-		      }
+                        if $Debug {
+			    print " Processing:\n";
+			    dd($E);
+		        }
+		        if $E {
+			    if $exclusive-event-callback {
+			        $exclusive-event-callback( $E );
+			    } else {
+			        $event-callback( $E ) if $event-callback;
+			        @events[*-1] = $E;
+			    }
+		        }
 		    }
 		    last Event if $eot;
 		}
