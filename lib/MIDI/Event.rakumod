@@ -577,9 +577,12 @@ note "Running status {sprintf "%02.2x", $event-code}" if $Debug;
               when 0xC0 {
                   next if $exclude<program-change>;
 		  $E = MIDI::Event::Program-change.new(
-		      time         => $time,
-		      channel      => $channel,
-		      patch-number => $parameter[0],
+		      time          => $time,
+                      group         => 0,
+		      channel       => $channel,
+		      patch-number  => $parameter[0],
+                      bank          => 0,
+                      bank-is-valid => False,
 		  );
               }
 
@@ -1364,29 +1367,70 @@ class MIDI::Event::Controller-change is MIDI::Event {
 }
 
 class MIDI::Event::Program-change is MIDI::Event {
-  has $.time is rw;
-  has $.channel;
-  has $.patch-number;
+    has $.time is rw;
+    has $.group = 0;
+    has $.channel;
+    has $.patch-number;
+    has $.bank = 0;
+    has $.bank-is-valid = False;
 
-  method encode($use-running-status, $last-status is rw --> Buf) {
-    my $status = 0xc0 +| $!channel +& 0x0f;
-    my $use-old-status = $use-running-status & ($status == $last-status);
-    $last-status = $status;
-    $use-old-status
-      ?? # we can use running status
-        Buf.new(|ber($!time),          $!patch-number +& 0x7f)
-      !! # otherwise
-        Buf.new(|ber($!time), $status, $!patch-number +& 0x7f)
-    ;
-  }
+    method !encode1($use-running-status, $last-status is rw --> Buf) {
+        my $buf;
+        if $!bank-is-valid {
+            $buf = MIDI::Event::Controller-change.new( # bank change msb
+                time => $!time,
+                channel => $!channel,
+                controller => 0,
+                value => $!bank +> 8
+                      ).encode;
+            $buf ~= MIDI::Event::Controller-change.new( # bank change lsb
+                time => $!time,
+                channel => $!channel,
+                controller => 0,
+                value => $!bank +> 8
+                      ).encode;
+        }
+        my $status = 0xc0 +| $!channel +& 0x0f;
+        my $use-old-status = $use-running-status & ($status == $last-status);
+        $last-status = $status;
+        $buf ~= $use-old-status
+        ?? # we can use running status
+            Buf.new(|ber($!time),          $!patch-number +& 0x7f)
+        !! # otherwise
+            Buf.new(|ber($!time), $status, $!patch-number +& 0x7f)
+        ;
+        $buf;
+    }
+    
+    method !encode2(--> Buf) {
+        my $buf = mkdeltatime2($!time);
+        $buf ~ Buf.new(
+            0x40 +| ($!group +& 0x0f),
+            0xc0 +| ($!channel +& 0x0f),
+            0,
+            $!bank-is-valid ?? 0x01 !! 0x00,
+            $!patch-number +& 0x7f,
+            0,
+            ($!bank +> 8) +& 0xff,
+            $!bank        +& 0xff,
+      );
+    }
+    
+    method encode($use-running-status, $last-status is rw --> Buf) {
+        if $use-midi1 {
+            self!encode1($use-running-status, $last-status);
+        } else {
+            self!encode2()
+        }
+    }
 
-  method raku() {
-      "MIDI::Event::Program-change.new(:time($!time), :channel($!channel), :patch-number($!patch-number))";
-  }
-
-  method type {
-      'program-change';
-  }
+    method raku() {
+        "MIDI::Event::Program-change.new(:time($!time), :channel($!channel), :patch-number($!patch-number))";
+    }
+    
+    method type {
+        'program-change';
+    }
 }
 
 class MIDI::Event::Channel-after-touch is MIDI::Event {
